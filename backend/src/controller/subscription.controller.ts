@@ -19,7 +19,8 @@ export class SubscriptionController {
 			const valor = req.body.valor;
 			const ciclo = req.body.ciclo;
 			const billingType = req.body.billingType || 'BOLETO';
-			const assinatura = await criarAssinaturaAsaas({ customer: cliente.id, value: valor, cycle: ciclo, billingType });
+			const description = req.body.description || 'Assinatura Consulta Médicos Online';
+			const assinatura = await criarAssinaturaAsaas({ customer: cliente.id, value: valor, cycle: ciclo, billingType, description });
 			const assinaturaId = assinatura.id;
 
 			return res.status(201).json({
