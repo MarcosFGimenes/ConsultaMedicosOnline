@@ -12,9 +12,15 @@ export class SubscriptionController {
 			const { criarClienteAsaas } = await import('../services/asaas.service.js');
 			const cliente = await criarClienteAsaas({ nome, email, cpf, telefone });
 
-			// 2. Criar assinatura no Asaas (TODO)
-			// Simulação:
-			const assinaturaId = 'assinatura-id-simulado';
+
+			// 2. Criar assinatura no Asaas
+			const { criarAssinaturaAsaas } = await import('../services/asaas.service.js');
+			// Valor e ciclo podem ser recebidos do body ou fixos
+			const valor = req.body.valor;
+			const ciclo = req.body.ciclo;
+			const billingType = req.body.billingType || 'BOLETO';
+			const assinatura = await criarAssinaturaAsaas({ customer: cliente.id, value: valor, cycle: ciclo, billingType });
+			const assinaturaId = assinatura.id;
 
 			return res.status(201).json({
 				message: 'Assinatura iniciada. Aguarde confirmação do pagamento.',

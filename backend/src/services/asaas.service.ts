@@ -1,3 +1,17 @@
+export async function criarAssinaturaAsaas({ customer, value, cycle = 'MONTHLY', description = 'Assinatura Consulta Médicos Online', billingType = 'BOLETO' }: { customer: string, value: number, cycle?: string, description?: string, billingType?: string }) {
+  if (!ASAAS_API_KEY) throw new Error('Chave da API Asaas não configurada');
+  const body: any = {
+    customer,
+    value,
+    cycle,
+    description,
+    billingType,
+  };
+  const resp = await axios.post(`${ASAAS_API_URL}/subscriptions`, body, {
+    headers: { access_token: ASAAS_API_KEY }
+  });
+  return resp.data;
+}
 import axios from 'axios';
 import { configDotenv } from 'dotenv';
 configDotenv();
