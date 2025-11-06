@@ -29,7 +29,7 @@ interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {
 export function CardHeader({ children, action, className, ...props }: CardHeaderProps) {
   return (
     <div className={clsx('flex items-center justify-between mb-4', className)} {...props}>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{children}</h3>
+      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{children}</h3>
       {action && <div>{action}</div>}
     </div>
   );

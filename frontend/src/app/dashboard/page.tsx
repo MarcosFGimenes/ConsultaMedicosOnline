@@ -12,12 +12,15 @@ import {
   TrendingUp,
   Stethoscope,
   ArrowRight,
+  Heart,
+  FileText,
+  UserPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   return (
-    <DashboardLayout title="Dashboard">
+    <DashboardLayout title="Dashboard - Assinante">
       {/* Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
@@ -29,7 +32,7 @@ export default function DashboardPage() {
                 </p>
                 <Badge variant="success">Ativo</Badge>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-green-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-success" />
               </div>
             </div>
@@ -47,7 +50,7 @@ export default function DashboardPage() {
                   15/12/2025
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
                 <CreditCard className="w-6 h-6 text-primary" />
               </div>
             </div>
@@ -65,7 +68,7 @@ export default function DashboardPage() {
                   3
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-purple-600" />
               </div>
             </div>
@@ -83,7 +86,7 @@ export default function DashboardPage() {
                   5
                 </p>
               </div>
-              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-orange-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-warning" />
               </div>
             </div>
@@ -95,7 +98,7 @@ export default function DashboardPage() {
       <Card className="mb-8">
         <CardHeader>Ações Rápidas</CardHeader>
         <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Link href="/consultas/agendar">
               <Button
                 variant="primary"
@@ -119,6 +122,20 @@ export default function DashboardPage() {
                 <span className="flex items-center">
                   <Stethoscope className="w-5 h-5 mr-2" />
                   Atendimento Imediato
+                </span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+
+            <Link href="/dependentes">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full justify-between group"
+              >
+                <span className="flex items-center">
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Gerenciar Dependentes
                 </span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
@@ -220,7 +237,7 @@ export default function DashboardPage() {
                   className="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
                 >
                   <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Stethoscope className="w-5 h-5 text-success" />
                     </div>
                     <div>

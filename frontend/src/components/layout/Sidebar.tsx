@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
+import { useEffect, useState } from 'react';
 import {
   Home,
   Calendar,
@@ -13,9 +14,25 @@ import {
   XCircle,
   LogOut,
   Stethoscope,
+  Shield,
+  Package,
+  FileText,
+  Activity,
+  Heart,
 } from 'lucide-react';
 
-const menuItems = [
+// Menu do Administrador
+const adminMenuItems = [
+  { icon: Home, label: 'Dashboard', href: '/admin/dashboard' },
+  { icon: Package, label: 'Planos', href: '/admin/planos' },
+  { icon: Users, label: 'Assinantes', href: '/admin/assinantes' },
+  { icon: FileText, label: 'Logs de Erro', href: '/admin/logs' },
+  { icon: Activity, label: 'Relatórios', href: '/admin/relatorios' },
+  { icon: Settings, label: 'Configurações', href: '/admin/configuracoes' },
+];
+
+// Menu do Assinante (titular do plano)
+const subscriberMenuItems = [
   { icon: Home, label: 'Dashboard', href: '/dashboard' },
   {
     icon: Calendar,
@@ -34,6 +51,23 @@ const menuItems = [
   { icon: XCircle, label: 'Cancelar Plano', href: '/cancelar-plano', danger: true },
 ];
 
+// Menu do Dependente (apenas serviços médicos)
+const dependentMenuItems = [
+  { icon: Home, label: 'Dashboard', href: '/dependente/dashboard' },
+  {
+    icon: Calendar,
+    label: 'Consultas',
+    href: '/consultas',
+    subItems: [
+      { label: 'Agendar', href: '/consultas/agendar' },
+      { label: 'Histórico', href: '/consultas/historico' },
+      { label: 'Atendimento Imediato', href: '/consultas/imediato' },
+    ],
+  },
+  { icon: User, label: 'Meus Dados', href: '/meus-dados' },
+  { icon: Settings, label: 'Configurações', href: '/configuracoes' },
+];
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -41,6 +75,49 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string>('subscriber');
+  const [userName, setUserName] = useState<string>('Usuário');
+  const [userEmail, setUserEmail] = useState<string>('usuario@example.com');
+
+  // Detectar o tipo de usuário do localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUserRole(user.role || 'subscriber');
+      setUserName(user.name || 'Usuário');
+      setUserEmail(user.email || 'usuario@example.com');
+    }
+  }, []);
+
+  // Selecionar o menu baseado no tipo de usuário
+  const menuItems = 
+    userRole === 'admin' ? adminMenuItems :
+    userRole === 'dependent' ? dependentMenuItems :
+    subscriberMenuItems;
+
+  // Ícone e cor do perfil baseado no tipo de usuário
+  const profileConfig = {
+    admin: { icon: Shield, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600', badge: 'Administrador' },
+    subscriber: { icon: CreditCard, color: 'bg-primary/10 text-primary', badge: 'Assinante' },
+    dependent: { icon: Heart, color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-600', badge: 'Dependente' },
+  };
+
+  const currentProfile = profileConfig[userRole as keyof typeof profileConfig] || profileConfig.subscriber;
+  const ProfileIcon = currentProfile.icon;
+
+  const handleLogout = () => {
+    // Limpar dados do localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Fechar sidebar (mobile)
+    onClose();
+    
+    // Redirecionar para página inicial
+    router.push('/');
+  };
 
   return (
     <>
@@ -72,15 +149,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User Info */}
         <div className="p-4 border-b border-border-light dark:border-border-dark">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
+            <div className={clsx('w-10 h-10 rounded-full flex items-center justify-center', currentProfile.color)}>
+              <ProfileIcon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                Usuário
+                {userName}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                usuario@example.com
+                {currentProfile.badge}
               </p>
             </div>
           </div>
@@ -88,7 +165,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Menu Items */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {menuItems.map((item) => {
+          {menuItems.map((item: any) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
 
@@ -112,7 +189,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {/* Sub-items */}
                 {item.subItems && isActive && (
                   <div className="ml-8 mt-1 space-y-1">
-                    {item.subItems.map((subItem) => (
+                    {item.subItems.map((subItem: any) => (
                       <Link
                         key={subItem.href}
                         href={subItem.href}
@@ -137,6 +214,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Logout Button */}
         <div className="p-4 border-t border-border-light dark:border-border-dark">
           <button
+            onClick={handleLogout}
             className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
           >
             <LogOut className="w-5 h-5 mr-3" />

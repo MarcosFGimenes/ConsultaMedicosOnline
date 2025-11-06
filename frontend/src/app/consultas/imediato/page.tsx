@@ -40,7 +40,7 @@ export default function AtendimentoImediatoPage() {
           {isAvailable ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-green-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-success" />
                 </div>
                 <div>

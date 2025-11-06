@@ -300,7 +300,7 @@ export default function AgendarConsultaPage() {
             {/* Step 6: Confirmação */}
             {currentStep === 6 && (
               <div className="space-y-6">
-                <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl text-center">
+                <div className="bg-green-50 dark:bg-slate-800 p-6 rounded-xl text-center">
                   <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Revise os dados da consulta

@@ -11,25 +11,38 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#0071BC',
-          dark: '#005A99',
+          DEFAULT: '#4CAF50', // Verde principal da landing page
+          dark: '#45a049',
+          light: '#81C784',
         },
-        success: '#10B981',
+        secondary: {
+          DEFAULT: '#8BC34A', // Verde secundário
+          dark: '#7CB342',
+        },
+        accent: {
+          DEFAULT: '#66BB6A', // Verde accent
+        },
+        success: '#4CAF50',
         danger: '#EF4444',
-        warning: '#F59E0B',
+        warning: '#FFC107',
+        info: '#2196F3',
         background: {
-          light: '#F3F4F6',
-          dark: '#0D1B2A',
+          light: '#F5F5F5',
+          dark: '#0F172A', // Fundo escuro (slate-900)
         },
         surface: {
           light: '#FFFFFF',
-          dark: '#1B263B',
+          dark: '#1E293B', // Superfícies escuras (slate-800)
+        },
+        border: {
+          light: '#E5E7EB',
+          dark: '#334155', // Bordas escuras (slate-700)
         },
         text: {
-          primary: '#1F2937',
-          secondary: '#6B7280',
-          'dark-primary': '#F8F9FA',
-          'dark-secondary': '#ADB5BD',
+          primary: '#212121',
+          secondary: '#757575',
+          'dark-primary': '#F1F5F9', // Texto branco no escuro (slate-100)
+          'dark-secondary': '#94A3B8', // Texto secundário no escuro (slate-400)
         },
       },
       fontFamily: {

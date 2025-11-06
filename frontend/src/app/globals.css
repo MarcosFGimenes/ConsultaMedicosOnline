@@ -4,16 +4,35 @@
 
 @layer base {
   :root {
-    --background: 243 244 246;
-    --foreground: 31 41 55;
+    --background: 245 245 245; /* Fundo claro */
+    --foreground: 33 33 33; /* Texto escuro */
   }
 
   .dark {
-    --background: 13 27 42;
-    --foreground: 248 249 250;
+    --background: 15 23 42; /* slate-900 - Fundo preto/azulado */
+    --foreground: 241 245 249; /* slate-100 - Texto branco */
+  }
+}
+
+@layer utilities {
+  /* Substituições para ícones coloridos no tema escuro */
+  .icon-bg-success {
+    @apply bg-green-100 dark:bg-slate-700;
+  }
+  
+  .icon-bg-primary {
+    @apply bg-primary/10 dark:bg-slate-700;
+  }
+
+  /* Cards com gradiente que ficam neutros no escuro */
+  .card-gradient-green {
+    @apply from-primary/5 to-green-50 dark:from-slate-800 dark:to-slate-700;
   }
 }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
 }
+
