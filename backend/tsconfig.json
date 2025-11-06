@@ -15,6 +15,7 @@
   "outDir": "dist",
   "rootDir": ".",
   "types": [],
+  "allowImportingTsExtensions": false,
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
