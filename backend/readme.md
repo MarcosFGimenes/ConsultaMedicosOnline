@@ -277,6 +277,7 @@ Content-Type: application/json
 
 ## Endpoints — resumo por área
 - Health: `GET /api/health`
+- Speedtest: `GET /api/speedtest`
 - Auth: `GET /api/auth/me`
 - Primeiro acesso: `POST /api/first-access/validate-cpf`
 - Assinatura: `POST /api/subscriptions/initiate`, `GET /api/subscription/status`, `POST /api/subscription/cancel`

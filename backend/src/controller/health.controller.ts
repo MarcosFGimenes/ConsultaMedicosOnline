@@ -38,3 +38,25 @@ export async function getHealth(_req: Request, res: Response) {
     });
   }
 }
+
+export async function getSpeedtest(_req: Request, res: Response) {
+  try {
+    const start = Date.now();
+    const ref = db.collection('speedtest').doc('test');
+    await ref.set({ timestamp: new Date().toISOString() });
+    const doc = await ref.get();
+    const end = Date.now();
+    const latency = end - start;
+
+    return res.status(200).json({
+      ok: true,
+      latencyMs: latency,
+      data: doc.exists ? doc.data() : null,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      error: (e as Error).message,
+    });
+  }
+}
