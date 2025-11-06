@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 243 244 246;
+    --foreground: 31 41 55;
+  }
+
+  .dark {
+    --background: 13 27 42;
+    --foreground: 248 249 250;
+  }
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
