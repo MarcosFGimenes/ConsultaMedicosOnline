@@ -10,5 +10,6 @@ router.get('/usuarios', UsuarioController.listar);
 router.post('/assinaturas', AssinaturaController.criarOuAtualizar);
 router.get('/assinaturas', AssinaturaController.listar);
 router.post('/beneficiarios', BeneficiarioController.criarOuAtualizar);
+router.get('/beneficiarios', BeneficiarioController.listar);
 
 export default router;

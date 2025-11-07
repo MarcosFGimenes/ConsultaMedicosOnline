@@ -32,4 +32,13 @@ export class BeneficiarioController {
             return res.status(500).json({ error: error.message || 'Erro ao salvar beneficiário.' });
         }
     }
+    static async listar(req: Request, res: Response) {
+        try {
+            const snapshot = await admin.firestore().collection('beneficiarios').get();
+            const beneficiarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            return res.status(200).json(beneficiarios);
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao listar beneficiários.' });
+        }
+    }
 }
