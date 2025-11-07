@@ -2,3 +2,4 @@ node_modules
 dist
 .env
 consulta-medicos-online-FIREBASE_CREDENTIALS_FILE.json
+API_TESTE_MEDICOSCONSULTASONLINE.txt
