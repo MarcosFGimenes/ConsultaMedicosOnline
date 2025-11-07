@@ -3,6 +3,8 @@ import { salvarAssinatura } from '../services/firestore.service.js';
 import { verificarPrimeiroPagamentoAssinatura } from '../services/asaas.service.js';
 import { verificarAssinaturaPorCpf } from '../services/asaas.service.js';
 import axios from 'axios';
+import { configDotenv } from 'dotenv';
+configDotenv();
 
 export class AssinaturaController {
     static async criarOuAtualizar(req: Request, res: Response) {
@@ -33,10 +35,12 @@ export class AssinaturaController {
                 const resp = await axios.get(`${process.env.RAPIDOC_BASE_URL}/${assinatura.cpfUsuario}`, {
                     headers: {
                         Authorization: `Bearer ${process.env.RAPIDOC_TOKEN}`,
-                        clientId: process.env.RAPIDOC_CLIENT_ID
+                        clientId: process.env.RAPIDOC_CLIENT_ID,
+                        'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
                     }
                 });
-                rapidocContaExiste = !!resp.data && !!resp.data.id;
+                const data = resp.data && resp.data.beneficiary;
+                rapidocContaExiste = !!data && !!data.uuid && data.isActive === true;
             } catch (err) {
                 rapidocContaExiste = false;
             }
