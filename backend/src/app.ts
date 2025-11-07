@@ -3,6 +3,7 @@ import healthRoutes from './routes/health.routes.js';
 import diagnosticsRoutes from './routes/diagnostics.routes.js';
 import firstAccessRoutes from './routes/firstAccess.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
+import firestoreRoutes from './routes/firestore.routes.js';
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/api', healthRoutes);
 app.use('/api', diagnosticsRoutes);
 app.use('/api', firstAccessRoutes);
 app.use('/api', subscriptionRoutes);
+app.use('/api', firestoreRoutes);
 
 export default app;
 

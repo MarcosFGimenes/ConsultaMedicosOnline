@@ -1,8 +1,10 @@
+import { configDotenv } from 'dotenv';
 import 'dotenv/config';
 import { initializeApp, applicationDefault, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore, CollectionReference, type DocumentData } from 'firebase-admin/firestore';
 import { readFileSync, existsSync } from 'node:fs';
+configDotenv();
 
 const unquote = (val?: string) => (val ? val.replace(/^['"]|['"]$/g, '') : undefined);
 const parsePrivateKey = (key?: string) => (key ? key.replace(/\\n/g, '\n') : undefined);
