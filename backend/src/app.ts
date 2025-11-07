@@ -4,6 +4,7 @@ import diagnosticsRoutes from './routes/diagnostics.routes.js';
 import firstAccessRoutes from './routes/firstAccess.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
 import firestoreRoutes from './routes/firestore.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api', diagnosticsRoutes);
 app.use('/api', firstAccessRoutes);
 app.use('/api', subscriptionRoutes);
 app.use('/api', firestoreRoutes);
+app.use('/api', dashboardRoutes);
 
 export default app;
 
