@@ -52,4 +52,13 @@ export class UsuarioController {
             return res.status(500).json({ error: error.message || 'Erro ao salvar usuário.' });
         }
     }
+    static async listar(req: Request, res: Response) {
+        try {
+            const snapshot = await admin.firestore().collection('usuarios').get();
+            const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            return res.status(200).json(usuarios);
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao listar usuários.' });
+        }
+    }
 }

@@ -6,6 +6,7 @@ import { BeneficiarioController } from '../controller/beneficiario.controller.js
 const router = Router();
 
 router.post('/usuarios', UsuarioController.criarOuAtualizar);
+router.get('/usuarios', UsuarioController.listar);
 router.post('/assinaturas', AssinaturaController.criarOuAtualizar);
 router.post('/beneficiarios', BeneficiarioController.criarOuAtualizar);
 
