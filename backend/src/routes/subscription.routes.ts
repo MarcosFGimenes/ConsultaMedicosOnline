@@ -6,4 +6,7 @@ const router = Router();
 // POST /api/subscription/start
 router.post('/subscription/start', SubscriptionController.startSubscription);
 
+// GET /api/subscription/check-payment/:assinaturaId
+router.get('/subscription/check-payment/:assinaturaId', SubscriptionController.checkFirstPayment);
+
 export default router;
