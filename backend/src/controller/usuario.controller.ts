@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { salvarUsuario } from '../services/firestore.service.js';
 import { verificarAssinaturaPorCpf } from '../services/asaas.service.js';
 import axios from 'axios';
+import admin from 'firebase-admin';
 import { configDotenv } from 'dotenv';
 configDotenv();
 
@@ -11,6 +12,13 @@ export class UsuarioController {
             const usuario = req.body;
             if (!usuario.cpf) {
                 return res.status(400).json({ error: 'CPF é obrigatório.' });
+            }
+
+            // Verifica se usuário já está cadastrado no Firestore
+            const usuarioRef = admin.firestore().collection('usuarios').doc(usuario.cpf);
+            const usuarioDoc = await usuarioRef.get();
+            if (usuarioDoc.exists) {
+                return res.status(409).json({ error: 'Usuário já cadastrado no banco de dados.' });
             }
 
             // Verifica se usuário existe no Rapidoc
