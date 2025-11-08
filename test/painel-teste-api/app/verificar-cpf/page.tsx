@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function VerificarCpfPage() {
+export default function Page() {
+
   const [cpf, setCpf] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [loading, setLoading] = useState(false);
+  const [podeCadastrar, setPodeCadastrar] = useState<null | boolean>(null);
+  const [usuario, setUsuario] = useState<Record<string, unknown> | null>(null);
+  const router = useRouter();
 
   const handleVerificar = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensagem("");
+    setPodeCadastrar(null);
+    setUsuario(null);
     setLoading(true);
 
     try {
@@ -20,7 +27,17 @@ export default function VerificarCpfPage() {
       });
       const data = await response.json();
       if (response.ok) {
-        setMensagem(data.message || "CPF verificado com sucesso!");
+        if (typeof data.podeCadastrar === "boolean") {
+          setPodeCadastrar(data.podeCadastrar);
+          setUsuario(null);
+          setMensagem(data.podeCadastrar ? "CPF liberado para cadastro!" : "Já existe cadastro ativo para este CPF.");
+        } else if (data.usuario) {
+          setPodeCadastrar(false);
+          setUsuario(data.usuario);
+          setMensagem("Usuário já possui assinatura ativa.");
+        } else {
+          setMensagem("CPF verificado com sucesso!");
+        }
       } else {
         setMensagem(data.error || "Erro ao verificar CPF.");
       }
@@ -52,6 +69,25 @@ export default function VerificarCpfPage() {
         </button>
         {mensagem && (
           <div className="mt-2 text-center text-sm text-zinc-700 dark:text-zinc-200">{mensagem}</div>
+        )}
+        {/* Botões de ação após validação */}
+        {podeCadastrar === true && (
+          <button
+            type="button"
+            className="bg-green-600 hover:bg-green-700 text-white rounded py-2 font-semibold mt-4"
+            onClick={() => router.push("/cadastro")}
+          >
+            Cadastrar
+          </button>
+        )}
+        {podeCadastrar === false && (
+          <button
+            type="button"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded py-2 font-semibold mt-4"
+            onClick={() => router.push("/login")}
+          >
+            Ir para Login
+          </button>
         )}
       </form>
     </div>
