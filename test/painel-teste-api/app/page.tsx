@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Plano = {
   id: string;
@@ -12,10 +13,11 @@ type Plano = {
   criadoEm?: string;
 };
 
-export default function Home() {
+export default function Page() {
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     fetch("http://localhost:3000/api/planos")
@@ -56,8 +58,7 @@ export default function Home() {
               </div>
               <button
                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-full transition-colors"
-                onClick={() => alert(`Assinar plano: ${plano.tipo}`)}
-                disabled
+                onClick={() => router.push("/verificar-cpf")}
               >
                 Assinar
               </button>
