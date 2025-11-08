@@ -40,4 +40,26 @@ export class AdminController {
       return res.status(500).json({ error: error.message || 'Erro ao cadastrar administrador.' });
     }
   }
+
+  // Cadastro de plano 
+  static async cadastrarPlano(req: Request, res: Response) {
+    try {
+      const { tipo, periodicidade, descricao, especialidades, preco } = req.body;
+      if (!tipo || !periodicidade || !descricao || !Array.isArray(especialidades) || !preco) {
+        return res.status(400).json({ error: 'Campos obrigatórios: tipo, periodicidade, descricao, especialidades (array), preco.' });
+      }
+      const db = getFirestore(firebaseApp);
+      const planoRef = await db.collection('planos').add({
+        tipo,
+        periodicidade,
+        descricao,
+        especialidades,
+        preco,
+        criadoEm: new Date().toISOString(),
+      });
+      return res.status(201).json({ message: 'Plano cadastrado com sucesso.', id: planoRef.id });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Erro ao cadastrar plano.' });
+    }
+  }
 }
