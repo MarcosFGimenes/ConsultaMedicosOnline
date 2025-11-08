@@ -1,3 +1,4 @@
+import adminRoutes from './routes/admin.routes.js';
 import express from 'express';
 import healthRoutes from './routes/health.routes.js';
 import diagnosticsRoutes from './routes/diagnostics.routes.js';
@@ -27,6 +28,7 @@ app.use('/api', firestoreRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', assinaturaRoutes);
 app.use('/api', usuarioRoutes);
+app.use('/api', adminRoutes);
 
 export default app;
 
