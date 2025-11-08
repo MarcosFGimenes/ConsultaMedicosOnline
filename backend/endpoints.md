@@ -185,6 +185,34 @@ Body:
 }
 ```
 
+## Planos
+### GET /planos
+Lista todos os planos disponíveis cadastrados no sistema.
+
+**Exemplo de resposta:**
+```json
+[
+  {
+    "id": "plano_doc_id",
+    "tipo": "Casal",
+    "periodicidade": "TRIMESTRAL",
+    "descricao": "Atendimentos ilimitados com médicos especializados e Clínico Geral. Sem carência.",
+    "especialidades": [
+      "Cardiologia",
+      "Dermatologia",
+      "Endocrinologia"
+    ],
+    "preco": 249.9,
+    "criadoEm": "2024-06-01T12:00:00.000Z"
+  }
+]
+```
+
+**Observações:**
+- Não requer autenticação.
+- Retorna todos os campos do plano cadastrados no Firestore.
+- O campo `id` corresponde ao ID do documento do plano no Firestore.
+
 ## Autenticação / Tokens
 Rotas protegidas exigem header:
 ```

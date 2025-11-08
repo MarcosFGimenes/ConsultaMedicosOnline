@@ -8,6 +8,7 @@ import firestoreRoutes from './routes/firestore.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import assinaturaRoutes from './routes/assinatura.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
+import planosRoutes from './routes/planos.routes.js';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api', dashboardRoutes);
 app.use('/api', assinaturaRoutes);
 app.use('/api', usuarioRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', planosRoutes);
 
 export default app;
 
