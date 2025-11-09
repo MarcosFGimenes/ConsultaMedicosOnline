@@ -36,7 +36,6 @@ export default function CadastroPage() {
     country: "BR",
     // Pagamento
     billingType: "BOLETO", // BOLETO | CREDIT_CARD | PIX
-    ciclo: "MONTHLY",
   });
   const [step, setStep] = useState(0);
   const [enviando, setEnviando] = useState(false);
@@ -82,6 +81,12 @@ export default function CadastroPage() {
   };
 
   const submitAssinatura = async () => {
+    // Converter periodicidade do plano para ciclo Asaas
+    const periodicidade = (plano?.periodicidade || '').toLowerCase();
+    let cicloAsaas: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY';
+    if (periodicidade.includes('tri')) cicloAsaas = 'QUARTERLY';
+    if (periodicidade.includes('anu')) cicloAsaas = 'YEARLY';
+
     setEnviando(true);
     setMensagem("");
     try {
@@ -100,7 +105,7 @@ export default function CadastroPage() {
         country: form.country,
         valor: plano?.preco,
         billingType: form.billingType,
-        ciclo: form.ciclo,
+        ciclo: cicloAsaas,
       };
       const resp = await fetch("http://localhost:3000/api/subscription/start", {
         method: "POST",
@@ -197,17 +202,10 @@ export default function CadastroPage() {
                   <option value="CREDIT_CARD">Cartão de Crédito</option>
                   <option value="PIX">PIX</option>
                 </select>
-                <label className="text-sm font-medium">Ciclo</label>
-                <select
-                  name="ciclo"
-                  value={form.ciclo}
-                  onChange={(e) => setForm({ ...form, ciclo: e.target.value })}
-                  className="border rounded px-4 py-2"
-                >
-                  <option value="MONTHLY">Mensal</option>
-                  <option value="QUARTERLY">Trimestral</option>
-                  <option value="YEARLY">Anual</option>
-                </select>
+                {/* Ciclo definido pelo plano, não editável pelo usuário */}
+                <div className="text-xs text-zinc-600 dark:text-zinc-300">
+                  Ciclo definido pelo plano: {plano.periodicidade}
+                </div>
               </div>
             </div>
             {/* Etapa 3: Confirmar */}
@@ -223,7 +221,7 @@ export default function CadastroPage() {
                 <div><strong>País:</strong> {form.country}</div>
                 <div><strong>Plano:</strong> {plano.tipo} / {plano.periodicidade} - R$ {plano.preco.toFixed(2)}</div>
                 <div><strong>Pagamento:</strong> {form.billingType}</div>
-                <div><strong>Ciclo:</strong> {form.ciclo}</div>
+                <div><strong>Ciclo:</strong> {plano.periodicidade}</div>
               </div>
               <button
                 type="button"
