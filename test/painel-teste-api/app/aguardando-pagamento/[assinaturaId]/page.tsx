@@ -230,6 +230,7 @@ export default function AguardandoPagamentoPage() {
         telefone: dados.telefone,
         dataNascimento: dados.birthday || dados.dataNascimento,
       };
+      const planoId = draftObj?.plano?.id; // assumindo que startSubscription salvou plano.id
       if (body.cpf && body.nome && body.email && body.telefone && body.dataNascimento) {
         const maxUserTentativas = 5;
         for (let tentativa = 1; tentativa <= maxUserTentativas; tentativa++) {
@@ -241,6 +242,56 @@ export default function AguardandoPagamentoPage() {
           });
           if (respUser.ok) {
             setMensagem("Usuário criado com sucesso.");
+            // 2.1 Salvar assinatura no banco agora que usuário e Rapidoc existem
+            try {
+              const draftRawAss = localStorage.getItem("assinaturaDraft");
+              const draftObjAss = draftRawAss ? JSON.parse(draftRawAss) : null;
+              const idAss = (Array.isArray(assinaturaId) ? assinaturaId[0] : assinaturaId) || draftObjAss?.assinaturaId;
+              if (!idAss || !body.cpf || !planoId) {
+                setErro("Não foi possível salvar assinatura: assinaturaId/cpf/planoId ausentes.");
+                setFinalizando(false);
+                return;
+              }
+              const assinaturaBody = {
+                idAssinatura: idAss,
+                cpfUsuario: body.cpf,
+                planoId: planoId,
+                status: "ATIVA",
+                dataInicio: new Date().toISOString().substring(0, 10), // AAAA-MM-DD
+              };
+              const maxAssTentativas = 3;
+              for (let t = 1; t <= maxAssTentativas; t++) {
+                setMensagem(`Salvando assinatura no banco (tentativa ${t}/${maxAssTentativas})...`);
+                const respAssin = await fetch("http://localhost:3000/api/assinaturas", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(assinaturaBody),
+                });
+                if (respAssin.ok) {
+                  setMensagem("Assinatura salva com sucesso.");
+                  break;
+                }
+                let msgA = `Falha ao salvar assinatura (HTTP ${respAssin.status}).`;
+                try {
+                  const dataAssin = await respAssin.json();
+                  if (typeof dataAssin?.error === 'string') msgA = dataAssin.error;
+                  else if (dataAssin?.description) msgA = dataAssin.description;
+                  else msgA = JSON.stringify(dataAssin);
+                } catch {}
+                if ((respAssin.status === 404 || respAssin.status === 402) && t < maxAssTentativas) {
+                  setMensagem("Dependências ainda não disponíveis. Tentando novamente em 3s...");
+                  await sleep(3000);
+                  continue;
+                }
+                setErro(msgA);
+                setFinalizando(false);
+                return;
+              }
+            } catch (e) {
+              setErro(e instanceof Error ? e.message : "Erro ao salvar assinatura.");
+              setFinalizando(false);
+              return;
+            }
             break;
           }
           // Trata erro
