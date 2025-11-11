@@ -63,6 +63,34 @@ export class UsuarioController {
         }
     }
 
+    static async obterDados(req: Request, res: Response) {
+        const { cpf } = req.params;
+        if (!cpf) return res.status(400).json({ error: 'CPF é obrigatório.' });
+
+        try {
+            const usuarioRef = admin.firestore().collection('usuarios').doc(cpf);
+            const usuarioDoc = await usuarioRef.get();
+            if (!usuarioDoc.exists) return res.status(404).json({ error: 'Usuário não encontrado.' });
+            return res.status(200).json(usuarioDoc.data());
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao obter usuário.' });
+        }
+    }
+
+    static async obterDadosAutenticado(req: Request, res: Response) {
+        const cpf = req.user?.cpf;
+        if (!cpf) return res.status(400).json({ error: 'CPF é obrigatório.' });
+
+        try {
+            const usuarioRef = admin.firestore().collection('usuarios').doc(cpf);
+            const usuarioDoc = await usuarioRef.get();
+            if (!usuarioDoc.exists) return res.status(404).json({ error: 'Usuário não encontrado.' });
+            return res.status(200).json(usuarioDoc.data());
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao obter usuário.' });
+        }
+    }
+
     static async atualizarDados(req: Request, res: Response) {
 
         const { cpf } = req.params;
@@ -121,7 +149,7 @@ export class UsuarioController {
                             },
                         }
                     );
-                } catch (e) {/* ignora erro do Rapidoc, segue fluxo */}
+                } catch (e) {/* ignora erro do Rapidoc, segue fluxo */ }
             }
 
             // Atualiza no Asaas (se necessário)
@@ -141,12 +169,32 @@ export class UsuarioController {
                             { headers: { access_token: process.env.ASAAS_API_KEY } }
                         );
                     }
-                } catch (e) {/* ignora erro do Asaas, segue fluxo */}
+                } catch (e) {/* ignora erro do Asaas, segue fluxo */ }
             }
 
             return res.status(200).json({ message: 'Dados atualizados com sucesso.' });
         } catch (error: any) {
             return res.status(500).json({ error: error.message || 'Erro ao atualizar dados.' });
+        }
+    }
+
+    static async obterBeneficiarioRapidoc(req: Request, res: Response) {
+        const { cpf } = req.params;
+        if (!cpf) return res.status(400).json({ error: 'CPF é obrigatório.' });
+
+        try {
+            const resp = await axios.get(`${process.env.RAPIDOC_BASE_URL}/tema/api/beneficiaries/${cpf}`, {
+                headers: {
+                    Authorization: `Bearer ${process.env.RAPIDOC_TOKEN}`,
+                    clientId: process.env.RAPIDOC_CLIENT_ID,
+                    'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+                }
+            });
+            const data = resp.data && resp.data.beneficiary;
+            if (!data) return res.status(404).json({ error: 'Beneficiário não encontrado no Rapidoc.' });
+            return res.status(200).json(data);
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao obter beneficiário no Rapidoc.' });
         }
     }
 }
