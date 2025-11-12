@@ -13,6 +13,12 @@ router.get('/usuario/:cpf', autenticarFirebase, UsuarioController.obterDados);
 // GET /api/usuario/me - Obtém dados do usuário autenticado
 router.get('/usuario/me', autenticarFirebase, UsuarioController.obterDadosAutenticado);
 
+// PATCH /api/usuario/senha - Atualiza a senha do usuário autenticado
+router.patch('/usuario/senha', autenticarFirebase, UsuarioController.atualizarSenha);
+
+// POST /api/usuario/recuperar-senha
+router.post('/usuario/recuperar-senha', UsuarioController.recuperarSenha);
+
 // GET /api/rapidoc/beneficiario/:cpf - Obtém dados do beneficiário no Rapidoc pelo CPF
 router.get('/rapidoc/beneficiario/:cpf', autenticarFirebase, UsuarioController.obterBeneficiarioRapidoc);
 
