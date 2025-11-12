@@ -30,7 +30,7 @@ export default function ComoFunciona() {
         <div className="grid gap-12 lg:grid-cols-2 items-start">
           {/* Left Column */}
           <div className="space-y-6">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Como Funciona</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-emerald-600">Como Funciona</h2>
             <p className="text-lg text-gray-600">
               Conteúdo provisório: descreva com mais detalhes cada etapa do serviço, tempo de resposta, canais de
               atendimento e diferenciais operacionais. Quando receber o texto final, basta substituir este parágrafo

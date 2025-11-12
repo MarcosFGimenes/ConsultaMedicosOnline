@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 
 import { useState } from "react"
@@ -37,7 +35,7 @@ const beneficiosPrincipais = [
   "Equipe de onboarding para seus clientes.",
 ]
 
-export default function Parceiros() {
+export default function Parceiros({ onOpenTermos }: { onOpenTermos: () => void }) {
   const [formData, setFormData] = useState({
     nome: "",
     empresa: "",
@@ -45,6 +43,7 @@ export default function Parceiros() {
     telefone: "",
     mensagem: "",
   })
+  const [termosAceitos, setTermosAceitos] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -56,9 +55,14 @@ export default function Parceiros() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!termosAceitos) {
+      alert("Você precisa aceitar os Termos de Aceite para continuar.")
+      return
+    }
     console.log("[v0] Form submitted:", formData)
     alert("Formulário enviado! Você será contatado em breve.")
     setFormData({ nome: "", empresa: "", email: "", telefone: "", mensagem: "" })
+    setTermosAceitos(false)
   }
 
   return (
@@ -71,7 +75,7 @@ export default function Parceiros() {
               <span className="inline-flex items-center gap-2 rounded-full bg-white/70 text-emerald-700 px-4 py-1 text-sm font-medium">
                 Programa de parcerias
               </span>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-emerald-600">
                 Amplie seus serviços com a telemedicina da Médicos Consultas Online
               </h1>
               <p className="text-lg text-slate-600">
@@ -80,13 +84,13 @@ export default function Parceiros() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <a
-                  href="#form-parceiro"
+                  href="https://api.whatsapp.com/send?phone=5551995095554"
                   className="inline-flex items-center rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-3 font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
                 >
                   <i className="fas fa-handshake mr-2" /> Quero ser parceiro
                 </a>
                 <a
-                  href="mailto:contato@medicosconsultasonline.com.br"
+                  href="#form-parceiro"
                   className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-6 py-3 font-semibold text-emerald-700 hover:bg-emerald-50 transition"
                 >
                   <i className="fas fa-envelope mr-2" /> Conversar com o time
@@ -115,12 +119,12 @@ export default function Parceiros() {
 
       {/* Modelos de Parceria */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 sm:mb-20 lg:mb-24">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)]">
-          <div className="space-y-5">
-            <h2 className="text-2xl font-bold text-slate-900">Modelos de parceria</h2>
-            <p className="text-slate-600 text-sm">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] items-center">
+          <div className="space-y-6 flex flex-col justify-center h-full">
+            <h2 className="text-2xl font-bold text-emerald-600">Modelos de parceria</h2>
+            <p className="text-slate-600 text-base leading-relaxed">
               Diversos tipos de parceria para atender suas necessidades, desde clínicas até influenciadores. Cada modelo
-              inclui suporte dedicado e ferramentas específicas.
+              inclui suporte dedicado e ferramentas específicas para maximizar seus resultados e crescimento.
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -142,92 +146,151 @@ export default function Parceiros() {
         </div>
       </div>
 
-      {/* Formulário */}
-      <div id="form-parceiro" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-8 sm:p-12 space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-3xl font-bold">Envie seus dados e receba o contato do nosso time</h2>
-            <p className="text-emerald-100 text-sm">
-              Preencha o formulário abaixo e nossa equipe entrará em contato em breve.
+      {/* Seção de Parceiros */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 sm:mb-20 lg:mb-24">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-emerald-600 mb-4">Conheça nossos parceiros</h2>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Empresas líderes que confiam em nossas soluções de telemedicina
+          </p>
+        </div>
+
+        <div className="grid gap-12 lg:grid-cols-2 items-center">
+          {/* Regional Certificadora */}
+          <div className="flex flex-col items-center text-center space-y-4 p-8 rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50">
+            <div className="w-full flex justify-center mb-4">
+              <img
+                src="/REGIONAL.png"
+                alt="Regional Certificadora Digital"
+                className="h-24 object-contain"
+              />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900">Regional Certificadora</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              <strong>Regional Certificadora</strong> - Autoridade de registro de certificados digitais; Emissão de certificados digitais para pessoas físicas e jurídicas nos modelos A1 e A3.
             </p>
           </div>
-          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-white/80">Nome completo</label>
-              <input
-                type="text"
-                name="nome"
-                value={formData.nome}
-                onChange={handleChange}
-                placeholder="Seu nome"
-                className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
-                required
+
+          {/* Salas & Negócios */}
+          <div className="flex flex-col items-center text-center space-y-4 p-8 rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50">
+            <div className="w-full flex justify-center mb-4">
+              <img
+                src="/SALAS.png"
+                alt="Salas & Negócios Coworking"
+                className="h-24 object-contain"
               />
             </div>
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-white/80">Empresa</label>
-              <input
-                type="text"
-                name="empresa"
-                value={formData.empresa}
-                onChange={handleChange}
-                placeholder="Nome da empresa"
-                className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
-                required
-              />
+            <h3 className="text-2xl font-bold text-slate-900">Salas & Negócios</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              <strong>Salas & Negócios Coworking</strong> - Endereço fiscal para micro e pequenas empresas; Para abertura rápida de empresa. Ative seu endereço em Santa Catarina e desfrute dos benefícios fiscais.
+            </p>
+        </div>
+      </div>
+
+      {/* Formulário */}
+      <div id="form-parceiro" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 sm:mt-20 lg:mt-24">
+          <div className="rounded-3xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-8 sm:p-12 space-y-6">
+            <div className="space-y-3">
+              <h2 className="text-3xl font-bold text-white">Envie seus dados e receba o contato do nosso time</h2>
+              
             </div>
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-white/80">E-mail</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="contato@empresa.com"
-                className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
-                required
-              />
-            </div>
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-white/80">Telefone</label>
-              <input
-                type="tel"
-                name="telefone"
-                value={formData.telefone}
-                onChange={handleChange}
-                placeholder="(00) 00000-0000"
-                className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
-                required
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-white/80">Mensagem</label>
-              <textarea
-                name="mensagem"
-                value={formData.mensagem}
-                onChange={handleChange}
-                rows={4}
-                placeholder="Conte um pouco sobre a sua demanda"
-                className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
-                required
-              />
-            </div>
-            <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-white/70">
-                Ao enviar, você concorda com os{" "}
-                <a href="#" className="underline">
-                  Termos de Aceite
-                </a>
-                .
-              </p>
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-full bg-white text-emerald-700 px-6 py-3 font-semibold shadow-md hover:-translate-y-0.5 hover:shadow-lg transition-all"
-              >
-                <i className="fas fa-paper-plane mr-2" /> Enviar formulário
-              </button>
-            </div>
-          </form>
+            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-white/80">Nome completo</label>
+                <input
+                  type="text"
+                  name="nome"
+                  value={formData.nome}
+                  onChange={handleChange}
+                  placeholder="Seu nome"
+                  className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-white/80">Empresa</label>
+                <input
+                  type="text"
+                  name="empresa"
+                  value={formData.empresa}
+                  onChange={handleChange}
+                  placeholder="Nome da empresa"
+                  className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-white/80">E-mail</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="contato@empresa.com"
+                  className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-white/80">Telefone</label>
+                <input
+                  type="tel"
+                  name="telefone"
+                  value={formData.telefone}
+                  onChange={handleChange}
+                  placeholder="(00) 00000-0000"
+                  className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-white/80">Mensagem</label>
+                <textarea
+                  name="mensagem"
+                  value={formData.mensagem}
+                  onChange={handleChange}
+                  rows={4}
+                  placeholder="Conte um pouco sobre a sua demanda"
+                  className="mt-2 w-full rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:border-white focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="flex items-start gap-3 text-sm text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={termosAceitos}
+                    onChange={(e) => setTermosAceitos(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-white/30 bg-white/10 text-emerald-500 focus:ring-2 focus:ring-white cursor-pointer"
+                    required
+                  />
+                  <span>
+                    Eu aceito os{" "}
+                    <button
+                      type="button"
+                      onClick={onOpenTermos}
+                      className="underline text-white hover:text-emerald-200 transition font-semibold"
+                    >
+                      Termos de Aceite
+                    </button>
+                  </span>
+                </label>
+              </div>
+              <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="submit"
+                  disabled={!termosAceitos}
+                  className={`inline-flex items-center justify-center rounded-full px-6 py-3 font-semibold shadow-md hover:shadow-lg transition-all ${
+                    termosAceitos
+                      ? "bg-white text-emerald-700 hover:-translate-y-0.5 cursor-pointer"
+                      : "bg-gray-400 text-gray-600 cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <i className="fas fa-paper-plane mr-2" /> Enviar formulário
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </section>

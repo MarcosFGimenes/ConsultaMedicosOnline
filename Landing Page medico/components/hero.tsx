@@ -18,7 +18,7 @@ export default function Hero() {
           <div className="grid gap-8 lg:grid-cols-2 items-center">
             {/* Text */}
             <div className="text-center lg:text-left order-last lg:order-first">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-emerald-600">
                 Tenha atendimento médico online agora!
               </h1>
               <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto lg:mx-0">
@@ -48,14 +48,14 @@ export default function Hero() {
 
             {/* Illustration */}
             <div className="order-first lg:order-none">
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-100/30 to-emerald-50/20 p-6 sm:p-10">
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-100/30 to-emerald-50/20 p-1 sm:p-2">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-200/20 rounded-full blur-3xl -top-20 -right-20" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-200/20 rounded-full blur-3xl -bottom-24 -left-20" />
-                <div className="relative z-10">
+                <div className="relative z-10 overflow-hidden rounded-xl">
                   <img
-                    src="/medical-consultation-online-illustration.jpg"
+                    src="/friendly-black-doctor.jpg"
                     alt="Ilustração atendimento médico online"
-                    className="w-full h-auto mx-auto"
+                    className="w-full h-auto mx-auto object-cover max-h-screen"
                   />
                 </div>
               </div>

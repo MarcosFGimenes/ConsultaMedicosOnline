@@ -32,7 +32,7 @@ export default function PlansHero({ onFilterChange }: PlansHeroProps) {
     <section className="bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900">Escolha o plano ideal</h1>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-emerald-600">Escolha o plano ideal</h1>
           <p className="mt-3 text-slate-600">
             Plano trimestral • Pagamento via Cartão, Boleto ou PIX
             <br />

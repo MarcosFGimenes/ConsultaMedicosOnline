@@ -20,7 +20,7 @@ export default function Especialidades() {
     <section id="especialidades" className="py-16 sm:py-20 lg:py-24 bg-gradient-to-br from-emerald-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-emerald-600">
             11+ especialidades <span className="text-emerald-600">ao seu alcance</span>
           </h2>
           <p className="mt-3 text-gray-600 text-lg">Conecte-se com especialistas qualificados em minutos, 24/7.</p>

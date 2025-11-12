@@ -2,9 +2,13 @@
 
 import { useState } from "react"
 import { Menu, X } from "lucide-react"
+import FAQModal from "./faq-modal"
+import TermosPage from "./termos-page"
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [faqModalOpen, setFaqModalOpen] = useState(false)
+  const [termosPageOpen, setTermosPageOpen] = useState(false)
 
   const handlePlansClick = () => {
     const plansElement = document.getElementById("planos")
@@ -22,17 +26,8 @@ export default function Header() {
     setMobileMenuOpen(false)
   }
 
-  // adiciona handler para FAQ
   const handleFAQClick = () => {
-    // procura por várias possíveis ids da seção de perguntas
-    const faqElement =
-      document.getElementById("faq") ||
-      document.getElementById("perguntas-frequentes") ||
-      document.getElementById("perguntas-mais-frequentes")
-
-    if (faqElement) {
-      faqElement.scrollIntoView({ behavior: "smooth" })
-    }
+    setFaqModalOpen(true)
     setMobileMenuOpen(false)
   }
 
@@ -58,21 +53,27 @@ export default function Header() {
             <a href="#" className="px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 transition font-medium">
               Área do Cliente
             </a>
-            <a href="#" className="px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 transition font-medium">
-              Quero Virar Parceiro
+            <a href="#parceiros" className="px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 transition font-medium">
+               Parceirias
             </a>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header 
+        className={`sticky top-0 border-b border-slate-100 shadow-sm transition-all duration-300 ${
+          faqModalOpen 
+            ? "bg-white/40 backdrop-blur-md" 
+            : "bg-white/90 backdrop-blur"
+        }`}
+        style={{ zIndex: 45 }}
+      >  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <a href="#inicio" className="flex items-center gap-2">
               <div className="w-20 h-20 relative flex items-center justify-center">
                 <img
-                  src="/m-dicos-consultas-online-logo.jpg"
+                  src="/logo.png"
                   alt="Médicos Consultas Online"
                   className="max-w-full max-h-full object-contain"
                 />
@@ -112,7 +113,7 @@ export default function Header() {
 
             <div className="hidden md:flex">
               <a
-                href="#"
+                href="#planos"
                 className="inline-flex items-center rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-5 py-2.5 font-medium shadow-md hover:shadow-lg transition-all duration-300"
               >
                 Contrate Agora
@@ -143,6 +144,7 @@ export default function Header() {
                 >
                   Quero Virar Parceiro
                 </a>
+                
                 <button
                   onClick={handlePlansClick}
                   className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium"
@@ -155,7 +157,7 @@ export default function Header() {
                 >
                   Parceiros
                 </button>
-                {/* opcional: adicionar FAQ no menu mobile */}
+                 
                 <button
                   onClick={handleFAQClick}
                   className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium"
@@ -174,9 +176,11 @@ export default function Header() {
         </div>
       </header>
 
-      <section id="faq">
-        {/* suas perguntas frequentes */}
-      </section>
+      {/* FAQ Modal */}
+      <FAQModal isOpen={faqModalOpen} onClose={() => setFaqModalOpen(false)} />
+
+      {/* Termos Page */}
+      {termosPageOpen && <TermosPage onClose={() => setTermosPageOpen(false)} />}
     </>
   )
 }
