@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import FAQModal from "./faq-modal"
 import TermosPage from "./termos-page"
@@ -36,14 +37,14 @@ export default function Header() {
       {/* Topbar */}
       <div className="bg-emerald-600 text-white text-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="hidden sm:flex flex-wrap items-center gap-4">
+            <div className="hidden sm:flex flex-wrap items-center gap-4">
             <span className="inline-flex items-center gap-2">
               <i className="fas fa-phone w-4 h-4" />
               (51) 99509-5554
             </span>
             <a
               href="mailto:contato@medicosconsultasonline.com.br"
-              className="inline-flex items-center gap-2 hover:underline"
+              className="inline-flex items-center gap-2 hover:underline cursor-pointer"
             >
               <i className="fas fa-envelope w-4 h-4" />
               contato@medicosconsultasonline.com.br
@@ -70,7 +71,7 @@ export default function Header() {
         style={{ zIndex: 45 }}
       >  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <a href="#inicio" className="flex items-center gap-2">
+            <a href="#inicio" className="flex items-center gap-2 cursor-pointer">
               <div className="w-20 h-20 relative flex items-center justify-center">
                 <img
                   src="/logo.png"
@@ -81,31 +82,31 @@ export default function Header() {
             </a>
 
             <nav className="hidden md:flex items-center gap-8">
-              <a href="#inicio" className="text-slate-700 hover:text-emerald-700 transition font-medium">
+              <a href="#inicio" className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer">
                 Início
               </a>
-              <a href="#como-funciona" className="text-slate-700 hover:text-emerald-700 transition font-medium">
+              <a href="#como-funciona" className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer">
                 Como Funciona
               </a>
-              <a href="#especialidades" className="text-slate-700 hover:text-emerald-700 transition font-medium">
+              <a href="#especialidades" className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer">
                 Especialidades
               </a>
               <button
                 onClick={handlePlansClick}
-                className="text-slate-700 hover:text-emerald-700 transition font-medium"
+                className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer"
               >
                 Planos
               </button>
               <button
                 onClick={handleParceirosClick}
-                className="text-slate-700 hover:text-emerald-700 transition font-medium"
+                className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer"
               >
                 Parceiros
               </button>
               {/* troquei o link por botão que rola suavemente */}
               <button
                 onClick={handleFAQClick}
-                className="text-slate-700 hover:text-emerald-700 transition font-medium"
+                className="text-slate-700 hover:text-emerald-700 transition font-medium cursor-pointer"
               >
                 FAQ
               </button>
@@ -122,7 +123,7 @@ export default function Header() {
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 hover:bg-slate-50 transition cursor-pointer"
             >
               {mobileMenuOpen ? <X className="w-6 h-6 text-slate-700" /> : <Menu className="w-6 h-6 text-slate-700" />}
             </button>
@@ -138,34 +139,34 @@ export default function Header() {
                 >
                   Área do Cliente
                 </a>
-                <a
-                  className="px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 w-full text-center font-medium"
-                  href="#"
+                <button
+                  onClick={handleParceirosClick}
+                  className="px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 w-full text-center font-medium cursor-pointer"
                 >
                   Quero Virar Parceiro
-                </a>
+                </button>
                 
                 <button
                   onClick={handlePlansClick}
-                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium"
+                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium cursor-pointer"
                 >
                   Planos
                 </button>
                 <button
                   onClick={handleParceirosClick}
-                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium"
+                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium cursor-pointer"
                 >
                   Parceiros
                 </button>
                  
                 <button
                   onClick={handleFAQClick}
-                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium"
+                  className="px-3 py-2 rounded-full bg-emerald-500 text-white w-full text-center font-medium cursor-pointer"
                 >
                   FAQ
                 </button>
                 <a
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 py-2.5 font-medium mt-2 shadow-md hover:shadow-lg transition"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 py-2.5 font-medium mt-2 shadow-md hover:shadow-lg transition cursor-pointer"
                   href="#"
                 >
                   Contrate Agora
