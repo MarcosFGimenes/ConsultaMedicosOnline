@@ -1,5 +1,7 @@
 "use client"
+import { useState } from "react"
 import { Check, LinkIcon } from "lucide-react"
+import Link from "next/link"
 
 interface Plan {
   id: string
@@ -44,8 +46,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
   },
   {
     id: "individual-plus",
@@ -70,8 +72,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
   },
   {
     id: "casal",
@@ -95,8 +97,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
   },
   {
     id: "casal-plus",
@@ -122,8 +124,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
     isRecommended: true,
   },
   {
@@ -148,8 +150,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
   },
   {
     id: "familiar-plus",
@@ -175,8 +177,8 @@ const plans: Plan[] = [
         href: "/index#especialidades",
       },
     ],
-    buttonText: "Quero esse",
-    buttonHref: "#contratar",
+    buttonText: "Quero esse!",
+    buttonHref: "/verificar-cpf",
   },
   {
     id: "empresarial",
@@ -238,11 +240,34 @@ interface PlansCardsProps {
   filter?: string
 }
 
-export default function PlansCards({ filter = "all" }: PlansCardsProps) {
-  const visiblePlans = filter === "all" ? plans : plans.filter((p) => p.category === filter)
+export default function PlansCards({ filter: initialFilter = "individual" }: PlansCardsProps) {
+  const [selectedCategory, setSelectedCategory] = useState(initialFilter)
+  const visiblePlans = selectedCategory === "all" ? plans : plans.filter((p) => p.category === selectedCategory)
 
   return (
     <section className="pb-16">
+      {/* Filter Buttons */}
+      <div className="flex flex-wrap justify-center gap-3 mb-12">
+        {[
+          { id: "individual", label: "Individual" },
+          { id: "casal", label: "Casal" },
+          { id: "familiar", label: "Familiar" },
+          { id: "empresarial", label: "Empresarial" }
+        ].map((category) => (
+          <button
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
+              selectedCategory === category.id
+                ? "bg-emerald-500 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {category.label}
+          </button>
+        ))}
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {visiblePlans.map((plan) => (
           <article
@@ -301,7 +326,7 @@ export default function PlansCards({ filter = "all" }: PlansCardsProps) {
             {plan.isSpecial && <p className="mt-4 text-xs uppercase tracking-wide text-slate-400">{plan.fidelity}</p>}
 
             {/* Button */}
-            <a
+            <Link
               href={plan.buttonHref}
               className={`mt-7 inline-flex justify-center w-full px-4 py-3 rounded-lg font-medium transition-all duration-300 ${
                 plan.isSpecial
@@ -310,7 +335,7 @@ export default function PlansCards({ filter = "all" }: PlansCardsProps) {
               }`}
             >
               {plan.buttonText}
-            </a>
+            </Link>
           </article>
         ))}
       </div>

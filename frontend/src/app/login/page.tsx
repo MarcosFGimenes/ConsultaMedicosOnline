@@ -50,6 +50,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 dark:from-slate-900 dark:via-gray-900 dark:to-slate-800 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <div className="text-center mb-8">
+          <button
+            onClick={() => router.push('/landing')}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary transition mb-4"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Voltar para o início
+          </button>
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-3xl mb-4 shadow-lg">
             <Stethoscope className="w-10 h-10 text-white" />
           </div>

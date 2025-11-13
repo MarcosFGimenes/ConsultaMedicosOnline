@@ -180,7 +180,7 @@ export default function PlansSection() {
                     : "border border-emerald-500 text-emerald-500 hover:bg-emerald-50"
                 }`}
               >
-                Escolher plano
+                Quero esse!
               </button>
             </div>
           ))}
