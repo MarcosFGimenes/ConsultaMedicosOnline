@@ -8,6 +8,8 @@ type Dependente = {
   cpf: string;
   birthDate: string;
   parentesco: string;
+  email?: string;
+  phone?: string;
 };
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
@@ -42,6 +44,8 @@ export default function DependentesPage() {
     cpf: '',
     birthDate: '',
     parentesco: '',
+    email: '',
+    phone: '',
   });
 
   // Buscar dependentes do usuário autenticado
@@ -86,10 +90,12 @@ export default function DependentesPage() {
         cpf: dep.cpf,
         birthDate: dep.birthDate,
         parentesco: dep.parentesco,
+        email: dep.email || '',
+        phone: dep.phone || '',
       });
     } else {
       setEditing(null);
-      setForm({ nome: '', cpf: '', birthDate: '', parentesco: '' });
+      setForm({ nome: '', cpf: '', birthDate: '', parentesco: '', email: '', phone: '' });
     }
     setShowModal(true);
   }
@@ -178,6 +184,8 @@ export default function DependentesPage() {
                 <div className="text-xs text-zinc-500">CPF: {dep.cpf}</div>
                 <div className="text-xs text-zinc-500">Nascimento: {dep.birthDate}</div>
                 <div className="text-xs text-zinc-500">Parentesco: {dep.parentesco}</div>
+                {dep.email && <div className="text-xs text-zinc-500">E-mail: {dep.email}</div>}
+                {dep.phone && <div className="text-xs text-zinc-500">Telefone: {dep.phone}</div>}
               </div>
               <div className="flex gap-2">
                 <button
@@ -258,6 +266,24 @@ export default function DependentesPage() {
                   <option value="Irmão(ã)">Irmão(ã)</option>
                   <option value="Outro">Outro</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">E-mail</label>
+                <input
+                  type="email"
+                  className="w-full border rounded px-3 py-2"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Telefone</label>
+                <input
+                  type="tel"
+                  className="w-full border rounded px-3 py-2"
+                  value={form.phone}
+                  onChange={e => setForm({ ...form, phone: e.target.value })}
+                />
               </div>
               <button
                 type="submit"

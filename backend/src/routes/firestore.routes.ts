@@ -11,6 +11,8 @@ router.get('/usuarios', UsuarioController.listar);
 router.post('/assinaturas', AssinaturaController.criarOuAtualizar);
 router.get('/assinaturas', AssinaturaController.listar);
 router.post('/dependentes', autenticarFirebase, DependenteController.adicionar);
+// Alterado para usar CPF como parâmetro principal
+router.put('/dependentes/:cpf', autenticarFirebase, DependenteController.editar);
 router.get('/dependentes/:cpf', autenticarFirebase, DependenteController.listarPorTitular);
 
 export default router;
