@@ -152,6 +152,24 @@ Lê detalhes de um agendamento no Rapidoc.
 ### DELETE /agendamentos/:uuid (protegido)
 Cancela um agendamento no Rapidoc.
 
+### POST /agendamentos/imediato (protegido)
+Cria uma solicitação de Consulta Imediata (fila/triagem). A API registra a solicitação e, opcionalmente, tenta agendar automaticamente um slot imediato se `RAPIDOC_IMMEDIATE_AUTO=true` e `specialtyUuid` for informado.
+
+Body (exemplo):
+```json
+{ "cpf": "12345678901", "specialtyUuid": "uuid-especialidade", "notes": "triagem" }
+```
+Respostas:
+- 201 quando já agendado (status "scheduled")
+- 202 quando aceito em fila (status "pending")
+- 400/422 se faltarem dados ou não houver especialidades associadas
+
+### GET /agendamentos/imediato/:id (protegido)
+Retorna o status da solicitação de consulta imediata. Possíveis `status`: `pending`, `scheduled`, `canceled`, `failed`.
+
+### DELETE /agendamentos/imediato/:id (protegido)
+Cancela a solicitação e, se já houver agendamento Rapidoc vinculado, tenta cancelá-lo também.
+
 	"cpf": "12345678901",
 	"birthday": "1990-05-15",
 	"zipCode": "13040000",

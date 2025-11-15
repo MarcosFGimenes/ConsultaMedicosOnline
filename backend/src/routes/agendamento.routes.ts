@@ -9,4 +9,9 @@ router.post('/agendamentos', autenticarFirebase, AgendamentoController.criar);
 router.get('/agendamentos/:uuid', autenticarFirebase, AgendamentoController.ler);
 router.delete('/agendamentos/:uuid', autenticarFirebase, AgendamentoController.cancelar);
 
+// Consulta imediata (fila/triagem)
+router.post('/agendamentos/imediato', autenticarFirebase, AgendamentoController.solicitarImediato);
+router.get('/agendamentos/imediato/:id', autenticarFirebase, AgendamentoController.statusImediato);
+router.delete('/agendamentos/imediato/:id', autenticarFirebase, AgendamentoController.cancelarSolicitacaoImediato);
+
 export default router;
