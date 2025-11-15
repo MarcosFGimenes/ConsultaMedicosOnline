@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { buscarBeneficiarioRapidocPorCpf, agendarConsultaRapidoc, lerAgendamentoRapidoc, cancelarAgendamentoRapidoc, listarRapidocEspecialidades, obterDetalhesPlanoRapidoc } from '../services/rapidoc.service.js';
+import { buscarBeneficiarioRapidocPorCpf, agendarConsultaRapidoc, lerAgendamentoRapidoc, cancelarAgendamentoRapidoc, listarRapidocEspecialidades, obterDetalhesPlanoRapidoc, atualizarBeneficiarioRapidoc, atualizarPlanoRapidoc } from '../services/rapidoc.service.js';
 
 export class AgendamentoController {
   static async criar(req: Request, res: Response) {
@@ -20,8 +20,8 @@ export class AgendamentoController {
                 });
               }
             }
-      if (!cpf || !date || (!from && !to && !req.body.time) || !specialtyUuid) {
-        return res.status(400).json({ error: 'Campos obrigatórios: cpf, date (yyyy-MM-dd), specialtyUuid, from(HH:mm) e to(HH:mm) ou time + durationMinutes.' });
+      if (!cpf || !date || (!from && !to && !req.body.time)) {
+        return res.status(400).json({ error: 'Campos obrigatórios: cpf, date (yyyy-MM-dd), from(HH:mm) e to(HH:mm) ou time + durationMinutes.' });
       }
 
       // Derivar from/to se vier time + durationMinutes
@@ -77,6 +77,13 @@ export class AgendamentoController {
         name: s?.name || s?.description || s?.title
       })).filter(s => s.uuid);
       if (normalizedBenefSpecialties.length) {
+        if (!specialtyUuid) {
+          return res.status(400).json({
+            error: 'specialtyUuid é obrigatório para beneficiário que possui especialidades associadas.',
+            beneficiaryUuid: beneficiario.uuid,
+            availableBeneficiarySpecialties: normalizedBenefSpecialties
+          });
+        }
         const hasSpecialty = normalizedBenefSpecialties.some(s => s.uuid === specialtyUuid);
         if (!hasSpecialty) {
           return res.status(422).json({
@@ -86,6 +93,23 @@ export class AgendamentoController {
             availableBeneficiarySpecialties: normalizedBenefSpecialties
           });
         }
+      }
+      // Fallback desativado: não associamos especialidade automaticamente via código
+      const semEspecialidadesAssociadas = normalizedBenefSpecialties.length === 0;
+      if (semEspecialidadesAssociadas) {
+        if (!specialtyUuid) {
+          let globais: any[] = [];
+          try { globais = await listarRapidocEspecialidades(); } catch {}
+          const suggestions = (globais || [])
+            .map((s: any) => ({ uuid: s?.uuid || s?.id, name: (s?.name || s?.description || s?.title || '').toString() }))
+            .filter((s: any) => s.uuid);
+          return res.status(422).json({
+            error: 'Beneficiário não possui especialidades associadas e o fallback de generalista está desativado. Informe specialtyUuid ou associe via Rapidoc.',
+            beneficiaryUuid: beneficiario.uuid,
+            suggestions
+          });
+        }
+        // Se specialtyUuid foi informado, seguimos adiante e deixamos a API validar.
       }
 
       const bodyRapidoc: Record<string, any> = {

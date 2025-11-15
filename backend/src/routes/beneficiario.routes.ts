@@ -6,5 +6,6 @@ const router = Router();
 
 // GET /api/beneficiarios/:cpf/especialidades - lista especialidades efetivas agregadas
 router.get('/beneficiarios/:cpf/especialidades', autenticarFirebase, BeneficiarioEspecialidadesController.listarEspecialidades);
+router.put('/beneficiarios/:cpf/especialidades', autenticarFirebase, BeneficiarioEspecialidadesController.associarEspecialidade);
 
 export default router;

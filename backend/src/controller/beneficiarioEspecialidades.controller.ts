@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { buscarBeneficiarioRapidocPorCpf, obterDetalhesPlanoRapidoc } from '../services/rapidoc.service.js';
+import { buscarBeneficiarioRapidocPorCpf, obterDetalhesPlanoRapidoc, atualizarBeneficiarioRapidoc, listarRapidocEspecialidades } from '../services/rapidoc.service.js';
 
 export class BeneficiarioEspecialidadesController {
   static async listarEspecialidades(req: Request, res: Response) {
@@ -64,6 +64,143 @@ export class BeneficiarioEspecialidadesController {
       });
     } catch (error: any) {
       return res.status(500).json({ error: error?.message || 'Erro ao listar especialidades do beneficiário.' });
+    }
+  }
+
+  static async associarEspecialidade(req: Request, res: Response) {
+    try {
+      const { cpf } = req.params;
+      const { specialtyUuid, specialtyUuids } = req.body || {};
+      if (!cpf) return res.status(400).json({ error: 'CPF é obrigatório.' });
+      // Normalizar entrada: aceitar specialtyUuid como string ou array, ou specialtyUuids como array
+      let uuidsRaw: any = [];
+      if (Array.isArray(specialtyUuids)) uuidsRaw = specialtyUuids;
+      else if (Array.isArray(specialtyUuid)) uuidsRaw = specialtyUuid;
+      else if (typeof specialtyUuid === 'string') uuidsRaw = [specialtyUuid];
+      const uuids: string[] = uuidsRaw.filter((u: any) => typeof u === 'string' && u.trim()).map((u: string) => u.trim());
+      if (!uuids.length) return res.status(400).json({ error: 'Informe specialtyUuid (string) ou specialtyUuids (array de strings).' });
+
+      const beneficiarioResp = await buscarBeneficiarioRapidocPorCpf(cpf);
+      const beneficiario = beneficiarioResp?.beneficiary;
+      if (!beneficiario || !beneficiario.uuid) {
+        return res.status(404).json({ error: 'Beneficiário não encontrado no Rapidoc.' });
+      }
+
+      // Opcional: validar contra especialidades globais
+      let globais: any[] = [];
+      try { globais = await listarRapidocEspecialidades(); } catch {}
+      const globaisSet = new Set(globais.map(g => g.uuid || g.id));
+      const invalidos = uuids.filter(u => globaisSet.size && !globaisSet.has(u));
+      if (invalidos.length) {
+        return res.status(422).json({ error: 'Algumas especialidades não existem.', invalidUuids: invalidos, globaisCount: globaisSet.size });
+      }
+
+      const specialties = uuids.map(u => ({ uuid: u }));
+
+      // Tentativa minimal: apenas specialties (evitar validação de email/phone)
+      let primeiraTentativaErro: any = null;
+      let resp: any = null;
+      try {
+        resp = await atualizarBeneficiarioRapidoc(beneficiario.uuid, { specialties });
+      } catch (e: any) {
+        primeiraTentativaErro = {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          sent: { specialties }
+        };
+      }
+
+      // Se falhou, normalizar telefone e tentar novamente sem email
+      if (!resp) {
+        const b = beneficiario;
+        let phone = b.phone;
+        if (typeof phone === 'string') {
+          const digits = phone.replace(/\D/g,'');
+          // Se começa com 55 e tem > 11 dígitos, remover código país
+          if (digits.length > 11 && digits.startsWith('55')) {
+            phone = digits.slice(2);
+          } else {
+            phone = digits;
+          }
+        }
+        let birthday = b.birthday;
+        if (typeof birthday === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(birthday)) {
+          const [d,m,y] = birthday.split('/');
+          birthday = `${y}-${m}-${d}`;
+        }
+        const allowedPayment = new Set(['S', 'A']);
+        const allowedService = new Set(['G', 'P', 'GP', 'GS', 'GSP']);
+        let paymentType = String(b.paymentType || process.env.RAPIDOC_DEFAULT_PAYMENT_TYPE || 'S').toUpperCase();
+        if (!allowedPayment.has(paymentType)) paymentType = 'S';
+        let serviceType = String(b.serviceType || process.env.RAPIDOC_DEFAULT_SERVICE_TYPE || 'G').toUpperCase();
+        if (!allowedService.has(serviceType)) serviceType = 'G';
+        const updateSecond = {
+          cpf: b.cpf,
+          birthday,
+          phone,
+          paymentType,
+          serviceType,
+          specialties
+        };
+        let segundaTentativaErro: any = null;
+        try {
+          resp = await atualizarBeneficiarioRapidoc(beneficiario.uuid, updateSecond);
+        } catch (e2: any) {
+          segundaTentativaErro = {
+            status: e2?.response?.status,
+            data: e2?.response?.data,
+            sent: updateSecond
+          };
+        }
+
+        // Fallback via plano se ainda falhar
+        if (!resp && Array.isArray(b.plans) && b.plans.length) {
+          const plano = b.plans[0].plan || b.plans[0];
+          const planUuid = plano?.uuid;
+          if (planUuid) {
+            const updatePlanOnly = {
+              plans: [{ plan: { uuid: planUuid, specialties } }]
+            };
+            let terceiraTentativaErro: any = null;
+            try {
+              resp = await atualizarBeneficiarioRapidoc(beneficiario.uuid, updatePlanOnly);
+            } catch (e3: any) {
+              terceiraTentativaErro = {
+                status: e3?.response?.status,
+                data: e3?.response?.data,
+                sent: updatePlanOnly
+              };
+            }
+            if (!resp) {
+              return res.status(400).json({
+                error: 'Falha ao associar especialidade (todas as tentativas).',
+                primeiraTentativaErro,
+                segundaTentativaErro,
+                terceiraTentativaErro
+              });
+            }
+            return res.status(200).json({ success: true, beneficiaryUuid: beneficiario.uuid, applied: specialties, via: 'plans-only', result: resp });
+          }
+          return res.status(400).json({
+            error: 'Falha ao associar especialidade (sem uuid de plano).',
+            primeiraTentativaErro,
+            segundaTentativaErro
+          });
+        }
+
+        if (!resp) {
+          return res.status(400).json({
+            error: 'Falha ao associar especialidade.',
+            primeiraTentativaErro,
+            segundaTentativaErro
+          });
+        }
+        return res.status(200).json({ success: true, beneficiaryUuid: beneficiario.uuid, applied: specialties, via: 'beneficiary-second', result: resp });
+      }
+
+      return res.status(200).json({ success: true, beneficiaryUuid: beneficiario.uuid, applied: specialties, via: 'beneficiary-minimal', result: resp });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Erro ao associar especialidade ao beneficiário.' });
     }
   }
 }

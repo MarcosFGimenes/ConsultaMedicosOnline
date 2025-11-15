@@ -42,6 +42,30 @@ export async function obterDetalhesPlanoRapidoc(uuid: string): Promise<any> {
   return resp.data;
 }
 
+// Atualizar plano Rapidoc (ex: adicionar specialties)
+export async function atualizarPlanoRapidoc(uuid: string, data: {
+  name?: string,
+  description?: string,
+  serviceType?: string,
+  specialties?: Array<{ uuid: string }>
+}) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/plans/${uuid}`;
+  const body: any = { uuid };
+  if (data.name) body.name = data.name;
+  if (data.description) body.description = data.description;
+  if (data.serviceType) body.serviceType = data.serviceType;
+  if (data.specialties) body.specialties = data.specialties;
+  const resp = await axios.put(url, body, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return resp.data;
+}
+
 // Lista especialidades disponíveis (formato da API presumido)
 export async function listarRapidocEspecialidades(): Promise<any[]> {
   if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
@@ -73,6 +97,7 @@ export async function atualizarBeneficiarioRapidoc(uuid: string, data: {
   plans?: any[],
   paymentType?: string,
   serviceType?: string,
+  specialties?: Array<{ uuid: string }>,
 }) {
   if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
   const url = `${RAPIDOC_BASE_URL}/tema/api/beneficiaries/${uuid}`;
@@ -100,6 +125,7 @@ export async function atualizarBeneficiarioRapidoc(uuid: string, data: {
   if (data.plans) body.plans = data.plans;
   if (data.paymentType) body.paymentType = data.paymentType;
   if (data.serviceType) body.serviceType = data.serviceType;
+  if (data.specialties) body.specialties = data.specialties;
 
   const resp = await axios.put(url, body, {
     headers: {
