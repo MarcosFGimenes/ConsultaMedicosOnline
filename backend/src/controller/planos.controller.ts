@@ -15,6 +15,26 @@ export class PlanosController {
         }
     }
 
+    // GET /api/planos/:id - Obtém um plano local específico por ID
+    static async obterPlano(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            if (!id) return res.status(400).json({ error: 'id do plano é obrigatório.' });
+
+            const { getFirestore } = await import('firebase-admin/firestore');
+            const { firebaseApp } = await import('../config/firebase.js');
+            const db = getFirestore(firebaseApp);
+            const ref = db.collection('planos').doc(id);
+            const doc = await ref.get();
+            if (!doc.exists) {
+                return res.status(404).json({ error: 'Plano não encontrado.' });
+            }
+            return res.status(200).json({ id: doc.id, ...doc.data() });
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao obter plano.' });
+        }
+    }
+
     // GET /api/planos/rapidoc - Lista planos Rapidoc (direto da API)
     static async listarPlanosRapidoc(_req: Request, res: Response) {
         try {
@@ -64,6 +84,19 @@ export class PlanosController {
             return res.status(200).json({ success: true, planUuid: uuid, applied: specialties, result: resp });
         } catch (error: any) {
             return res.status(500).json({ error: error.message || 'Erro interno ao atualizar plano Rapidoc.' });
+        }
+    }
+
+    // GET /api/planos/rapidoc/:uuid - Obtém detalhes de um plano Rapidoc por UUID
+    static async obterPlanoRapidoc(req: Request, res: Response) {
+        try {
+            const { uuid } = req.params;
+            if (!uuid) return res.status(400).json({ error: 'uuid do plano é obrigatório.' });
+            const detalhes = await obterDetalhesPlanoRapidoc(uuid);
+            if (!detalhes || !detalhes.uuid) return res.status(404).json({ error: 'Plano Rapidoc não encontrado.' });
+            return res.status(200).json(detalhes);
+        } catch (error: any) {
+            return res.status(500).json({ error: error.message || 'Erro ao consultar plano Rapidoc.' });
         }
     }
 }

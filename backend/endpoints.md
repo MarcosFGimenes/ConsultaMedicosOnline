@@ -109,6 +109,13 @@ Ou para PIX:
 }
 ```
 
+### DELETE /subscription/cancel/:assinaturaId
+Cancela uma assinatura no Asaas apenas se não houver pendências de pagamento (status PENDING/OVERDUE).
+Respostas:
+- 200 `{ cancelado: true }`
+- 409 `{ mensagem: "Existem pendências de pagamento" }`
+- 404 assinatura não encontrada
+
 ### GET /subscription/onboarding-status/:cpf
 Retorna o status do onboarding para um CPF.
 Resposta 200:
@@ -123,6 +130,28 @@ Body mínimo:
 {
 	"nome": "João Silva",
 	"email": "joao@email.com",
+## Agendamentos
+### POST /agendamentos (protegido)
+Agenda consulta no Rapidoc. Requer especialidade explicitamente informada via `specialtyUuid` quando não houver associações prévias no beneficiário.
+Body (exemplo mínimo):
+```json
+{
+	"cpf": "12345678901",
+	"date": "2025-01-15",
+	"time": "14:00",
+	"specialtyUuid": "uuid-especialidade"
+}
+```
+Respostas:
+- 201 objeto do agendamento
+- 422 quando não houver especialidade associada e `specialtyUuid` não for enviado (retorna sugestões)
+
+### GET /agendamentos/:uuid (protegido)
+Lê detalhes de um agendamento no Rapidoc.
+
+### DELETE /agendamentos/:uuid (protegido)
+Cancela um agendamento no Rapidoc.
+
 	"cpf": "12345678901",
 	"birthday": "1990-05-15",
 	"zipCode": "13040000",
@@ -194,9 +223,35 @@ Body:
 ### GET /beneficiarios
 Lista beneficiários.
 
+### POST /beneficiarios/:cpf/inativar-rapidoc (protegido)
+Inativa o beneficiário correspondente no Rapidoc (marca isActive=false).
+
+### DELETE /beneficiarios/:cpf (protegido)
+Remove do banco local o titular e todos os dependentes relacionados (Firestore). Não remove no Rapidoc/Asaas.
+
+### GET /beneficiarios/:cpf/especialidades (protegido)
+Lista as especialidades efetivas do beneficiário (agregadas de plano + associações).
+
+### PUT /beneficiarios/:cpf/especialidades (protegido)
+Associa/atualiza especialidades do beneficiário no Rapidoc. Normaliza `paymentType` (S/A) e `serviceType` (G/P/GP/GS/GSP).
+
 ## Dashboard
 ### GET /dashboard (protegido - requer Bearer token Firebase)
-Retorna `{ usuario, assinaturas, beneficiarios }` pelo UID/CPF autenticado.
+Retorna visão do assinante pelo UID/CPF autenticado:
+```json
+{
+	"usuario": { ... },
+	"assinaturas": [ ... ],
+	"beneficiarios": [ ... ],
+	"rapidoc": {
+		"beneficiary": { ... },
+		"appointments": [ ... ]
+	},
+	"faturas": [
+		{ "paymentId": "...", "status": "...", "value": 79.9, "dueDate": "...", "invoiceUrl": "..." }
+	]
+}
+```
 
 ## Onboarding (Orquestrador)
 ### POST /subscription/complete-onboarding
@@ -253,6 +308,22 @@ Body:
 }
 ```
 
+### GET /admin/dashboard (protegido - autenticarAdministrador)
+Métricas administrativas com totais e faturamento:
+```json
+{
+	"totais": {
+		"usuarios": 100,
+		"assinaturas": { "ativas": 80, "pendentes": 10, "canceladas": 10 }
+	},
+	"faturamento": {
+		"mesAtual": 12345.67,
+		"ultimos30dias": 23456.78,
+		"pendencias": 5
+	}
+}
+```
+
 ## Planos
 ### GET /planos
 Lista todos os planos disponíveis cadastrados no sistema.
@@ -280,6 +351,21 @@ Lista todos os planos disponíveis cadastrados no sistema.
 - Não requer autenticação.
 - Retorna todos os campos do plano cadastrados no Firestore.
 - O campo `id` corresponde ao ID do documento do plano no Firestore.
+
+### GET /planos/:id
+Retorna os detalhes de um plano específico salvo no Firestore.
+
+Respostas:
+- 200 objeto do plano `{ id, ... }`
+- 404 quando não encontrado
+
+### GET /planos/rapidoc
+Lista planos do Rapidoc diretamente pela API externa.
+
+### GET /planos/rapidoc/:uuid
+Retorna os detalhes de um plano específico no Rapidoc (por UUID).
+- 200 objeto do plano Rapidoc
+- 404 quando não encontrado
 
 ## Autenticação / Tokens
 Rotas protegidas exigem header:
