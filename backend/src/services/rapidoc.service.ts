@@ -228,6 +228,24 @@ export async function cancelarAgendamentoRapidoc(uuid: string) {
   return { status: resp.status };
 }
 
+// Lista agendamentos no Rapidoc com filtros opcionais (ex.: { beneficiary: uuid } ou { cpf })
+export async function listarAgendamentosRapidoc(params: Record<string, any>) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/appointments`;
+  const resp = await axios.get(url, {
+    params,
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  // Algumas implementações retornam { data: [...]} ou diretamente array
+  if (Array.isArray(resp.data)) return resp.data;
+  if (Array.isArray(resp.data?.data)) return resp.data.data;
+  if (Array.isArray(resp.data?.appointments)) return resp.data.appointments;
+  return [];
+}
 // Inativa beneficiário no Rapidoc tentando chaves isActive/active
 export async function inativarBeneficiarioRapidoc(uuid: string) {
   if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
