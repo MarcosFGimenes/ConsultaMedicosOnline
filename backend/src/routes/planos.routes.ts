@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PlanosController } from '../controller/planos.controller.js';
+import { autenticarAdministrador } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.get('/planos/rapidoc', PlanosController.listarPlanosRapidoc);
 // GET /api/planos/rapidoc/:uuid - Detalhes de um plano Rapidoc
 router.get('/planos/rapidoc/:uuid', PlanosController.obterPlanoRapidoc);
 
-// PUT /api/planos/rapidoc/:uuid/especialidades - atualiza specialties do plano Rapidoc
-router.put('/planos/rapidoc/:uuid/especialidades', PlanosController.atualizarEspecialidadesPlanoRapidoc);
+// PUT /api/planos/rapidoc/:uuid/especialidades - atualiza specialties do plano Rapidoc (admin)
+router.put('/planos/rapidoc/:uuid/especialidades', autenticarAdministrador, PlanosController.atualizarEspecialidadesPlanoRapidoc);
 
 export default router;

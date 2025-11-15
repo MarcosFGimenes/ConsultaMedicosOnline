@@ -128,60 +128,20 @@ Inicia fluxo criando cliente e assinatura Asaas.
 Body mínimo:
 ```json
 {
-	"nome": "João Silva",
-	"email": "joao@email.com",
-## Agendamentos
-### POST /agendamentos (protegido)
-Agenda consulta no Rapidoc. Requer especialidade explicitamente informada via `specialtyUuid` quando não houver associações prévias no beneficiário.
-Body (exemplo mínimo):
-```json
-{
-	"cpf": "12345678901",
-	"date": "2025-01-15",
-	"time": "14:00",
-	"specialtyUuid": "uuid-especialidade"
-}
-```
-Respostas:
-- 201 objeto do agendamento
-- 422 quando não houver especialidade associada e `specialtyUuid` não for enviado (retorna sugestões)
-
-### GET /agendamentos/:uuid (protegido)
-Lê detalhes de um agendamento no Rapidoc.
-
-### DELETE /agendamentos/:uuid (protegido)
-Cancela um agendamento no Rapidoc.
-
-### POST /agendamentos/imediato (protegido)
-Cria uma solicitação de Consulta Imediata (fila/triagem). A API registra a solicitação e, opcionalmente, tenta agendar automaticamente um slot imediato se `RAPIDOC_IMMEDIATE_AUTO=true` e `specialtyUuid` for informado.
-
-Body (exemplo):
-```json
-{ "cpf": "12345678901", "specialtyUuid": "uuid-especialidade", "notes": "triagem" }
-```
-Respostas:
-- 201 quando já agendado (status "scheduled")
-- 202 quando aceito em fila (status "pending")
-- 400/422 se faltarem dados ou não houver especialidades associadas
-
-### GET /agendamentos/imediato/:id (protegido)
-Retorna o status da solicitação de consulta imediata. Possíveis `status`: `pending`, `scheduled`, `canceled`, `failed`.
-
-### DELETE /agendamentos/imediato/:id (protegido)
-Cancela a solicitação e, se já houver agendamento Rapidoc vinculado, tenta cancelá-lo também.
-
-	"cpf": "12345678901",
-	"birthday": "1990-05-15",
-	"zipCode": "13040000",
-	"endereco": "Rua Teste",
-	"numero": "123",
-	"bairro": "Centro",
-	"cidade": "Campinas",
-	"estado": "SP",
-	"country": "BR",
-	"valor": 79.9,
-	"telefone": "19999998888"
-	// opcionais: ciclo, billingType, description, phone, paymentType, serviceType, holder, general
+  "nome": "João Silva",
+  "email": "joao@email.com",
+  "cpf": "12345678901",
+  "birthday": "1990-05-15",
+  "zipCode": "13040000",
+  "endereco": "Rua Teste",
+  "numero": "123",
+  "bairro": "Centro",
+  "cidade": "Campinas",
+  "estado": "SP",
+  "country": "BR",
+  "valor": 79.9,
+  "telefone": "19999998888"
+  // opcionais: ciclo, billingType, description, phone, paymentType, serviceType, holder, general
 }
 ```
 Respostas:
@@ -225,21 +185,30 @@ Body (exemplo):
 { "nome": "João Silva Junior" }
 ```
 
-## Beneficiários
-### POST /beneficiarios
-Cria beneficiário vinculado a responsável (holder) já existente.
-Body:
-```json
-{
-	"cpf": "11122233344",
-	"holder": "12345678901",
-	"nome": "Maria Silva",
-	"parentesco": "Filha"
-}
-```
+### GET /usuario/:cpf (protegido)
+Obtém dados do usuário no Firestore pelo CPF.
 
-### GET /beneficiarios
-Lista beneficiários.
+### GET /usuario/me (protegido)
+Obtém dados do usuário autenticado (usa CPF do token).
+
+### PATCH /usuario/senha (protegido)
+Altera a senha do usuário autenticado (valida a senha atual via Firebase REST API).
+
+### POST /usuario/recuperar-senha
+Envia e-mail de recuperação de senha via Firebase.
+
+### GET /rapidoc/beneficiario/:cpf (protegido)
+Obtém dados do beneficiário no Rapidoc pelo CPF.
+
+## Dependentes (Beneficiários locais)
+### POST /dependentes (protegido)
+Cria dependente vinculado a um titular (holder) existente.
+
+### PUT /dependentes/:cpf (protegido)
+Atualiza dados do dependente identificado por CPF.
+
+### GET /dependentes/:cpf (protegido)
+Lista dependentes vinculados ao titular (holder = :cpf).
 
 ### POST /beneficiarios/:cpf/inativar-rapidoc (protegido)
 Inativa o beneficiário correspondente no Rapidoc (marca isActive=false).
@@ -252,6 +221,10 @@ Lista as especialidades efetivas do beneficiário (agregadas de plano + associa�
 
 ### PUT /beneficiarios/:cpf/especialidades (protegido)
 Associa/atualiza especialidades do beneficiário no Rapidoc. Normaliza `paymentType` (S/A) e `serviceType` (G/P/GP/GS/GSP).
+
+## Especialidades
+### GET /especialidades (protegido)
+Lista especialidades globais do Rapidoc.
 
 ## Dashboard
 ### GET /dashboard (protegido - requer Bearer token Firebase)
@@ -384,6 +357,53 @@ Lista planos do Rapidoc diretamente pela API externa.
 Retorna os detalhes de um plano específico no Rapidoc (por UUID).
 - 200 objeto do plano Rapidoc
 - 404 quando não encontrado
+
+### PUT /planos/rapidoc/:uuid/especialidades
+Atualiza as especialidades associadas a um plano Rapidoc (admin). Envie `specialtyUuid` (string) ou `specialtyUuids` (array de strings).
+
+## Agendamentos
+### POST /agendamentos (protegido)
+Agenda consulta no Rapidoc. Requer especialidade explicitamente informada via `specialtyUuid` quando não houver associações prévias no beneficiário.
+Body (exemplo mínimo):
+```json
+{
+	"cpf": "12345678901",
+	"date": "2025-01-15",
+	"time": "14:00",
+	"specialtyUuid": "uuid-especialidade"
+}
+```
+Respostas:
+- 201 objeto do agendamento
+- 422 quando não houver especialidade associada e `specialtyUuid` não for enviado (retorna sugestões)
+
+### GET /agendamentos/:uuid (protegido)
+Lê detalhes de um agendamento no Rapidoc.
+
+### DELETE /agendamentos/:uuid (protegido)
+Cancela um agendamento no Rapidoc.
+
+### POST /agendamentos/imediato (protegido)
+Cria uma solicitação de Consulta Imediata (fila/triagem). A API registra a solicitação e, opcionalmente, tenta agendar automaticamente um slot imediato se `RAPIDOC_IMMEDIATE_AUTO=true` e `specialtyUuid` for informado.
+
+Body (exemplo):
+```json
+{ "cpf": "12345678901", "specialtyUuid": "uuid-especialidade", "notes": "triagem" }
+```
+Respostas:
+- 201 quando já agendado (status "scheduled")
+- 202 quando aceito em fila (status "pending")
+- 400/422 se faltarem dados ou não houver especialidades associadas
+
+### GET /agendamentos/imediato/:id (protegido)
+Retorna o status da solicitação de consulta imediata. Possíveis `status`: `pending`, `scheduled`, `canceled`, `failed`.
+
+### DELETE /agendamentos/imediato/:id (protegido)
+Cancela a solicitação e, se já houver agendamento Rapidoc vinculado, tenta cancelá-lo também.
+
+## Faturas
+### GET /faturas (protegido)
+Lista faturas do usuário autenticado (via CPF no token ou parâmetros auxiliares).
 
 ## Autenticação / Tokens
 Rotas protegidas exigem header:
