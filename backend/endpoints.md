@@ -404,3 +404,7 @@ Authorization: Bearer <TOKEN_JWT_FIREBASE>
 - Erros do Rapidoc/Asaas são retornados encapsulados quando possível.
 - Snapshot do plano é salvo dentro da assinatura para histórico.
 
+### Auditoria de API
+- Todas as requisições passam por um middleware de auditoria que registra em `logs_api` (Firestore): método, URL, status, latência, `uid`/`cpf` (quando disponível), IP e user-agent.
+- Para desativar logs, defina `ENABLE_API_AUDIT_LOGS=false` no ambiente.
+

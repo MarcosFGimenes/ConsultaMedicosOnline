@@ -14,12 +14,14 @@ import faturasRoutes from './routes/faturas.routes.js';
 import agendamentoRoutes from './routes/agendamento.routes.js';
 import beneficiarioRoutes from './routes/beneficiario.routes.js';
 import especialidadesRoutes from './routes/especialidades.routes.js';
+import { auditLogger } from './middlewares/audit.middleware.js';
 
 const app = express();
 app.use(cors());
 
 // Middlewares globais
 app.use(express.json());
+app.use(auditLogger);
 
 // Rota raiz simples
 app.get('/', (_req, res) => {
