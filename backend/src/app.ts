@@ -11,6 +11,7 @@ import assinaturaRoutes from './routes/assinatura.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
 import planosRoutes from './routes/planos.routes.js';
 import faturasRoutes from './routes/faturas.routes.js';
+import agendamentoRoutes from './routes/agendamento.routes.js';
 
 const app = express();
 app.use(cors());
@@ -35,6 +36,7 @@ app.use('/api', usuarioRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', planosRoutes);
 app.use('/api', faturasRoutes);
+app.use('/api', agendamentoRoutes);
 
 export default app;
 

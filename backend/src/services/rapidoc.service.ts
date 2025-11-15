@@ -28,6 +28,37 @@ export async function listarRapidocPlanos(): Promise<RapidocPlan[]> {
   return resp.data as RapidocPlan[];
 }
 
+// Obter detalhes de um plano específico (para extrair especialidades associadas)
+export async function obterDetalhesPlanoRapidoc(uuid: string): Promise<any> {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/plans/${uuid}`;
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return resp.data;
+}
+
+// Lista especialidades disponíveis (formato da API presumido)
+export async function listarRapidocEspecialidades(): Promise<any[]> {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/specialties`;
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  // Assume resp.data contém array ou objeto com campo specialties
+  if (Array.isArray(resp.data)) return resp.data;
+  if (Array.isArray(resp.data?.specialties)) return resp.data.specialties;
+  return [];
+}
+
 // Atualiza beneficiário no Rapidoc
 export async function atualizarBeneficiarioRapidoc(uuid: string, data: {
   name?: string,
@@ -113,4 +144,58 @@ export async function cadastrarBeneficiarioRapidoc({ nome, email, cpf, birthday,
     }
   });
   return resp.data;
+}
+
+// Buscar beneficiário Rapidoc por CPF
+export async function buscarBeneficiarioRapidocPorCpf(cpf: string) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/beneficiaries/${cpf}`;
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return resp.data;
+}
+
+// Agendar consulta no Rapidoc (corpo flexível para acompanhar a API)
+export async function agendarConsultaRapidoc(body: Record<string, any>) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/appointments`;
+  const resp = await axios.post(url, body, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return resp.data;
+}
+
+export async function lerAgendamentoRapidoc(uuid: string) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/appointments/${uuid}`;
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return resp.data;
+}
+
+export async function cancelarAgendamentoRapidoc(uuid: string) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/appointments/${uuid}`;
+  const resp = await axios.delete(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  return { status: resp.status };
 }
