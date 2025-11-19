@@ -50,7 +50,7 @@ type DraftDados = {
 export default function AguardandoPagamentoPage() {
   const params = useParams();
   const router = useRouter();
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
   // Rota estilizada usa [id]
   const assinaturaId = Array.isArray(params?.id) ? params.id[0] : (params?.id as string | undefined);
 
