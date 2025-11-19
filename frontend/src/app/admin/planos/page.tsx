@@ -91,8 +91,58 @@ function EditPlanoModal({ plano, open, onClose, onSave }: { plano: any, open: bo
     </div>
   );
 }
+
 import { getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase';
+
+function DeletePlanoModal({ plano, open, onClose, onDelete }: { plano: any, open: boolean, onClose: () => void, onDelete: () => Promise<void> }) {
+  const [input, setInput] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [erro, setErro] = useState('');
+  if (!open || !plano) return null;
+  const disabled = input.trim() !== (plano.tipo || plano.nome || plano.internalPlanKey || plano.id);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-md p-6 relative">
+        <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-white" onClick={onClose}>
+          <XCircle className="w-6 h-6" />
+        </button>
+        <h2 className="text-xl font-bold mb-4 text-red-700 dark:text-red-300">Excluir Plano</h2>
+        <div className="mb-4 text-sm text-gray-700 dark:text-gray-200">
+          <p><b>Nome do plano:</b> <span className="text-primary font-semibold">{plano.tipo || plano.nome || plano.internalPlanKey || plano.id}</span></p>
+          <p className="mt-2 text-red-600 dark:text-red-300 font-medium">Esta ação é irreversível!</p>
+          <ul className="mt-2 list-disc pl-5 text-xs text-gray-600 dark:text-gray-400">
+            <li>Todos os usuários e beneficiários vinculados a este plano ficarão <b>sem plano</b> e precisarão escolher outro.</li>
+            <li>Os dados do plano serão permanentemente removidos do sistema.</li>
+            <li>Esta ação não pode ser desfeita.</li>
+          </ul>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Digite o nome do plano para confirmar:</label>
+          <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Nome exato do plano" autoFocus />
+        </div>
+        {erro && <div className="text-red-600 text-sm mb-2">{erro}</div>}
+        <div className="flex justify-end gap-2 mt-4">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="button" variant="danger" disabled={disabled || submitting} onClick={async () => {
+            setErro('');
+            setSubmitting(true);
+            try {
+              await onDelete();
+              onClose();
+            } catch (err: any) {
+              setErro(err?.message || 'Erro ao excluir plano.');
+            } finally {
+              setSubmitting(false);
+            }
+          }}>
+            {submitting ? 'Excluindo...' : 'Excluir Plano'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPlanosPage() {
   const [planos, setPlanos] = useState<any[]>([]);
@@ -100,9 +150,15 @@ export default function AdminPlanosPage() {
   const [erro, setErro] = useState("");
   const [editPlano, setEditPlano] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [deletePlano, setDeletePlano] = useState<any>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const handleEdit = (plano: any) => {
     setEditPlano(plano);
     setEditOpen(true);
+  };
+  const handleDelete = (plano: any) => {
+    setDeletePlano(plano);
+    setDeleteOpen(true);
   };
 
   const handleEditSave = async (data: any) => {
@@ -326,11 +382,36 @@ export default function AdminPlanosPage() {
                         <Edit className="w-4 h-4 mr-1" />
                         Editar
                       </Button>
-                        <EditPlanoModal plano={editPlano} open={editOpen} onClose={() => setEditOpen(false)} onSave={handleEditSave} />
-                      <Button variant="danger" size="sm">
+                      <EditPlanoModal plano={editPlano} open={editOpen} onClose={() => setEditOpen(false)} onSave={handleEditSave} />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDelete(plano)}
+                      >
                         <Trash2 className="w-4 h-4 mr-1" />
                         Excluir
                       </Button>
+                          <DeletePlanoModal
+                            plano={deletePlano}
+                            open={deleteOpen}
+                            onClose={() => setDeleteOpen(false)}
+                            onDelete={async () => {
+                              const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+                              const auth = getAuth(app);
+                              const user = auth.currentUser;
+                              if (!user) throw new Error('Usuário não autenticado.');
+                              const token = await user.getIdToken();
+                              const res = await fetch(`${API_BASE}/planos/${deletePlano.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (!res.ok) {
+                                const err = await res.json().catch(() => ({}));
+                                throw new Error(err?.error || 'Erro ao excluir plano.');
+                              }
+                              setPlanos((prev) => prev.filter((p) => p.id !== deletePlano.id));
+                            }}
+                          />
                     </div>
                   </div>
                 </div>
