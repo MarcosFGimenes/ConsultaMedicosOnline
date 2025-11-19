@@ -32,6 +32,13 @@ type DashboardData = {
   planos?: {
     numeroPlanos: number;
     mediaValorPlanos: number;
+    detalhados?: Array<{
+      id: string;
+      nome: string;
+      valor: number;
+      assinantes: number;
+      valorTotal: number;
+    }>;
   };
 };
 
@@ -245,32 +252,42 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardBody>
             <div className="space-y-3">
-              {[
-                { nome: 'Básico Individual', valor: 'R$ 49,90', assinantes: 450, cor: 'bg-blue-100 dark:bg-slate-700 text-blue-600' },
-                { nome: 'Premium Individual', valor: 'R$ 89,90', assinantes: 320, cor: 'bg-purple-100 dark:bg-slate-700 text-purple-600' },
-                { nome: 'Básico Familiar', valor: 'R$ 149,90', assinantes: 280, cor: 'bg-green-100 dark:bg-slate-700 text-success' },
-                { nome: 'Premium Familiar', valor: 'R$ 249,90', assinantes: 198, cor: 'bg-orange-100 dark:bg-slate-700 text-warning' },
-              ].map((plano, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${plano.cor}`}>
-                      <Package className="w-5 h-5" />
+              {loading ? (
+                <div className="text-center text-gray-500">Carregando...</div>
+              ) : erro ? (
+                <div className="text-center text-danger">Erro ao carregar planos</div>
+              ) : dashboard?.planos?.detalhados && dashboard.planos.detalhados.length > 0 ? (
+                dashboard.planos.detalhados.map((plano, idx) => (
+                  <div
+                    key={plano.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-slate-700 text-blue-600`}>
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm">
+                          {plano.nome}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {plano.assinantes} assinantes
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {plano.nome}
+                    <div className="text-right">
+                      <p className="font-semibold text-primary">
+                        {`R$ ${plano.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {plano.assinantes} assinantes
+                      <p className="text-xs text-gray-500">
+                        Total: R$ {plano.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
-                  <p className="font-semibold text-primary">{plano.valor}</p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center text-gray-500">Nenhum plano cadastrado</div>
+              )}
             </div>
           </CardBody>
         </Card>
