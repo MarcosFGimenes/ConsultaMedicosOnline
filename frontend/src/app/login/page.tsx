@@ -1,6 +1,9 @@
 ﻿'use client';
 
 import { useState } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { Stethoscope, Shield, CreditCard, Heart, Mail, Lock, ArrowRight } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
@@ -24,26 +27,54 @@ export default function HomePage() {
     { role: 'dependent' as UserRole, title: 'Dependente', icon: Heart, color: 'from-primary to-green-600' },
   ];
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [erro, setErro] = useState<string>("");
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRole) { alert('Por favor, selecione um perfil'); return; }
+    setErro("");
+    if (!selectedRole) { setErro('Por favor, selecione um perfil'); return; }
 
-    const userData = {
-      admin: { id: 1, name: name || 'Admin Sistema', email, role: 'admin' },
-      subscriber: { id: 2, name: name || 'Gustavo Silva Santos', email, role: 'subscriber', subscriptionId: 'SUB-001', planName: 'Premium Familiar' },
-      dependent: { id: 3, name: name || 'Maria Silva', email, role: 'dependent', subscriberId: 2, relationship: 'Filha' },
-    };
+    // Se for admin, verifica se o email é admin no Firestore
+    if (selectedRole === 'admin') {
+      try {
+        const q = query(collection(db, 'usuarios'), where('email', '==', email), where('tipo', '==', 'admin'));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          setErro('Nenhum administrador encontrado com este email.');
+          return;
+        }
+      } catch (err) {
+        setErro('Erro ao verificar administrador.');
+        return;
+      }
+    }
 
-    localStorage.setItem('token', `token-${selectedRole}-123`);
-    localStorage.setItem('user', JSON.stringify(userData[selectedRole]));
-    
-    const redirectMap = {
-      admin: '/admin/dashboard',
-      subscriber: '/dashboard',
-      dependent: '/dependente/dashboard',
-    };
-    
-    router.push(redirectMap[selectedRole]);
+    try {
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCred.user;
+      // Busca dados extras do Firestore
+      let userDoc: any = null;
+      try {
+        const q = query(collection(db, 'usuarios'), where('email', '==', email));
+        const snap = await getDocs(q);
+        if (!snap.empty) userDoc = snap.docs[0].data();
+      } catch {}
+      localStorage.setItem('token', await user.getIdToken());
+      localStorage.setItem('user', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        name: userDoc?.nome || user.displayName || '',
+        role: userDoc?.tipo || selectedRole,
+        ...userDoc
+      }));
+      const redirectMap = {
+        admin: '/admin/dashboard',
+        subscriber: '/dashboard',
+        dependent: '/dependente/dashboard',
+      };
+      router.push(redirectMap[selectedRole]);
+    } catch (err: any) {
+      setErro('Email ou senha inválidos.');
+    }
   };
 
   return (
@@ -107,7 +138,7 @@ export default function HomePage() {
                   <Button type="submit" variant="primary" size="lg" className="w-full bg-gradient-to-r from-primary to-green-600 hover:from-green-600 hover:to-primary" disabled={!selectedRole}>{isNewUser ? 'Criar conta' : 'Entrar'}<ArrowRight className="w-5 h-5 ml-2" /></Button>
                   <div className="text-center"><button type="button" onClick={() => setIsNewUser(!isNewUser)} className="text-sm text-primary hover:underline">{isNewUser ? 'Já tem conta? Fazer login' : 'Primeiro acesso? Criar conta'}</button></div>
                 </form>
-                {!selectedRole && <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"><p className="text-xs text-yellow-800 dark:text-yellow-300 text-center"> Selecione um perfil para continuar</p></div>}
+                {erro && <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"><p className="text-xs text-red-800 dark:text-red-200 text-center">{erro}</p></div>}
               </CardBody>
             </Card>
           </div>
