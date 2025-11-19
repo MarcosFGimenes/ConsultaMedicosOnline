@@ -66,6 +66,8 @@ export class UsuarioController {
             if (rapidocBeneficiaryUuid) {
                 (usuario as any).rapidocBeneficiaryUuid = rapidocBeneficiaryUuid;
             }
+            // Adiciona data de criação
+            (usuario as any).criadoEm = new Date().toISOString();
             const result = await salvarUsuario(usuario);
             return res.status(201).json({ message: 'Usuário salvo com sucesso.', id: result.id });
         } catch (error: any) {
