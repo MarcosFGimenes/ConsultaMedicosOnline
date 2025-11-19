@@ -2,6 +2,42 @@ import type { Request, Response } from 'express';
 import { obterDetalhesPlanoRapidoc, atualizarPlanoRapidoc } from '../services/rapidoc.service.js';
 
 export class PlanosController {
+        // PUT /api/planos/:id - Edita um plano local existente
+        static async editarPlano(req: Request, res: Response) {
+            try {
+                const { id } = req.params;
+                if (!id) return res.status(400).json({ error: 'id do plano é obrigatório.' });
+
+                const { getFirestore } = await import('firebase-admin/firestore');
+                const { firebaseApp } = await import('../config/firebase.js');
+                const db = getFirestore(firebaseApp);
+                const ref = db.collection('planos').doc(id);
+                const doc = await ref.get();
+                if (!doc.exists) {
+                    return res.status(404).json({ error: 'Plano não encontrado.' });
+                }
+
+                // Só atualiza os campos enviados no body
+                const updateData: Record<string, any> = {};
+                const allowedFields = [
+                    'tipo', 'descricao', 'preco', 'valor', 'periodicidade', 'especialidades',
+                    'paymentType', 'uuidRapidocPlano', 'internalPlanKey', 'maxBeneficiaries', 'beneficiaryConfig', 'status'
+                ];
+                for (const field of allowedFields) {
+                    if (req.body[field] !== undefined) {
+                        updateData[field] = req.body[field];
+                    }
+                }
+                if (Object.keys(updateData).length === 0) {
+                    return res.status(400).json({ error: 'Nenhum campo válido para atualizar.' });
+                }
+
+                await ref.update(updateData);
+                return res.status(200).json({ success: true, id, updated: updateData });
+            } catch (error: any) {
+                return res.status(500).json({ error: error.message || 'Erro ao editar plano.' });
+            }
+        }
     static async listarPlanos(_req: Request, res: Response) {
         try {
             const { getFirestore } = await import('firebase-admin/firestore');

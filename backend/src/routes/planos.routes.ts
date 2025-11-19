@@ -13,8 +13,12 @@ router.get('/planos/rapidoc/:uuid', PlanosController.obterPlanoRapidoc);
 // GET /api/planos - Lista todos os planos locais
 router.get('/planos', PlanosController.listarPlanos);
 
+
 // GET /api/planos/:id - Obtém um plano local específico
 router.get('/planos/:id', PlanosController.obterPlano);
+
+// PUT /api/planos/:id - Edita um plano local existente
+router.put('/planos/:id', autenticarAdministrador, PlanosController.editarPlano);
 
 // PUT /api/planos/rapidoc/:uuid/especialidades - atualiza specialties do plano Rapidoc (admin)
 router.put('/planos/rapidoc/:uuid/especialidades', autenticarAdministrador, PlanosController.atualizarEspecialidadesPlanoRapidoc);
