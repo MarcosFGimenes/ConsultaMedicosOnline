@@ -8,7 +8,7 @@ export class PlanosController {
                     const { id } = req.params;
                     if (!id) return res.status(400).json({ error: 'id do plano é obrigatório.' });
 
-                    const { getFirestore } = await import('firebase-admin/firestore');
+                    const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
                     const { firebaseApp } = await import('../config/firebase.js');
                     const db = getFirestore(firebaseApp);
                     const ref = db.collection('planos').doc(id);
@@ -16,8 +16,26 @@ export class PlanosController {
                     if (!doc.exists) {
                         return res.status(404).json({ error: 'Plano não encontrado.' });
                     }
+
+                    // Deleta o plano
                     await ref.delete();
-                    return res.status(200).json({ success: true });
+
+                    // Desvincula o plano de todos os usuários/beneficiários
+                    // Assume que o campo de vínculo pode ser: planoId, uuidRapidocPlano, idAssinaturaAtual, etc
+                    // Aqui vamos buscar por planoId ou uuidRapidocPlano igual ao id removido
+                    const batch = db.batch();
+                    const usuariosSnap = await db.collection('usuarios').where('planoId', '==', id).get();
+                    usuariosSnap.forEach((userDoc) => {
+                        batch.update(userDoc.ref, { planoId: FieldValue.delete(), uuidRapidocPlano: FieldValue.delete(), idAssinaturaAtual: FieldValue.delete() });
+                    });
+                    // Se beneficiários também têm vínculo
+                    const beneficiariosSnap = await db.collection('beneficiarios').where('planoId', '==', id).get();
+                    beneficiariosSnap.forEach((benDoc) => {
+                        batch.update(benDoc.ref, { planoId: FieldValue.delete(), uuidRapidocPlano: FieldValue.delete(), idAssinaturaAtual: FieldValue.delete() });
+                    });
+                    await batch.commit();
+
+                    return res.status(200).json({ success: true, desvinculados: usuariosSnap.size + beneficiariosSnap.size });
                 } catch (error: any) {
                     return res.status(500).json({ error: error.message || 'Erro ao excluir plano.' });
                 }
