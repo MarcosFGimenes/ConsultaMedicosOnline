@@ -107,12 +107,13 @@ export class AdminController {
       const db = getFirestore(firebaseApp);
 
       // Totais básicos (Firestore)
-      const [usuariosSnap, assinSnap, ativasSnap, canceladasSnap, pendentesSnap] = await Promise.all([
+      const [usuariosSnap, assinSnap, ativasSnap, canceladasSnap, pendentesSnap, planosSnap] = await Promise.all([
         db.collection('usuarios').get(),
         db.collection('assinaturas').get(),
         db.collection('assinaturas').where('status', '==', 'ATIVA').get(),
         db.collection('assinaturas').where('status', 'in', ['CANCELADA', 'CANCELADO']).get().catch(() => ({ size: 0 } as any)),
         db.collection('assinaturas').where('status', 'in', ['PENDENTE', 'PENDING']).get().catch(() => ({ size: 0 } as any)),
+        db.collection('planos').get(),
       ]);
 
       const totais = {
@@ -122,6 +123,23 @@ export class AdminController {
         assinaturasCanceladas: (canceladasSnap as any).size ?? 0,
         assinaturasPendentes: (pendentesSnap as any).size ?? 0,
       };
+
+      // Número de planos e média de valor dos planos
+      let numeroPlanos = (planosSnap as any).size ?? 0;
+      let mediaValorPlanos = 0;
+      if (numeroPlanos > 0) {
+        let soma = 0;
+        let count = 0;
+        (planosSnap as any).forEach((doc: any) => {
+          const data = doc.data();
+          const preco = Number(data.preco);
+          if (!isNaN(preco)) {
+            soma += preco;
+            count++;
+          }
+        });
+        if (count > 0) mediaValorPlanos = soma / count;
+      }
 
       // Faturamento (Asaas) - melhor esforço, primeira página
       const ASAAS_API_URL = process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3';
@@ -155,7 +173,14 @@ export class AdminController {
         } catch {}
       }
 
-      return res.status(200).json({ totais, faturamento });
+      return res.status(200).json({
+        totais,
+        faturamento,
+        planos: {
+          numeroPlanos,
+          mediaValorPlanos
+        }
+      });
     } catch (error: any) {
       return res.status(500).json({ error: error?.message || 'Erro ao montar dashboard administrativo.' });
     }
