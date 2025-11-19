@@ -40,6 +40,12 @@ type DashboardData = {
       valorTotal: number;
     }>;
   };
+  novosAssinantes?: Array<{
+    nome: string;
+    plano: string;
+    data: string;
+    status: string;
+  }>;
 };
 
 export default function AdminDashboardPage() {
@@ -307,36 +313,39 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardBody>
             <div className="space-y-3">
-              {[
-                { nome: 'João Silva', plano: 'Premium Familiar', data: 'Hoje', status: 'success' },
-                { nome: 'Maria Santos', plano: 'Básico Individual', data: 'Ontem', status: 'success' },
-                { nome: 'Pedro Costa', plano: 'Premium Individual', data: 'Há 2 dias', status: 'pending' },
-                { nome: 'Ana Oliveira', plano: 'Básico Familiar', data: 'Há 3 dias', status: 'success' },
-              ].map((assinante, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <UserPlus className="w-5 h-5 text-primary" />
+              {loading ? (
+                <div className="text-center text-gray-500">Carregando...</div>
+              ) : erro ? (
+                <div className="text-center text-danger">Erro ao carregar assinantes</div>
+              ) : dashboard?.novosAssinantes && dashboard.novosAssinantes.length > 0 ? (
+                dashboard.novosAssinantes.map((assinante, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm">
+                          {assinante.nome}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {assinante.plano} • {assinante.data}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {assinante.nome}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {assinante.plano} • {assinante.data}
-                      </p>
-                    </div>
+                    {assinante.status === 'success' ? (
+                      <Badge variant="success">Ativo</Badge>
+                    ) : (
+                      <Badge variant="warning">Pendente</Badge>
+                    )}
                   </div>
-                  {assinante.status === 'success' ? (
-                    <Badge variant="success">Ativo</Badge>
-                  ) : (
-                    <Badge variant="warning">Pendente</Badge>
-                  )}
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center text-gray-500">Nenhum novo assinante</div>
+              )}
             </div>
           </CardBody>
         </Card>
