@@ -13,7 +13,8 @@ export class SubscriptionController {
             endereco,
             cidade,
             estado,
-            plans
+            plans,
+            planoId
         } = req.body;
 
         // Campos obrigatórios básicos
@@ -27,7 +28,7 @@ export class SubscriptionController {
         if (!cidade) missing.push('cidade');
         if (!estado) missing.push('estado');
         if (!zipCode) missing.push('zipCode');
-        if (!plans || !Array.isArray(plans) || plans.length === 0) missing.push('plans');
+        // Não exigimos mais 'plans' se conseguirmos derivar pelo planoId/assinaturaId
         if (missing.length) {
             return res.status(400).json({ error: `Campos obrigatórios ausentes: ${missing.join(', ')}` });
         }
@@ -42,6 +43,9 @@ export class SubscriptionController {
 
             // 2. Validar planos contra Rapidoc (paymentType conforme GET /plans)
             const { listarRapidocPlanos, cadastrarBeneficiarioRapidoc } = await import('../services/rapidoc.service.js');
+            const { getFirestore } = await import('firebase-admin/firestore');
+            const { firebaseApp } = await import('../config/firebase.js');
+            const db = getFirestore(firebaseApp);
             let rapidocPlanos: any[] = [];
             try {
                 rapidocPlanos = await listarRapidocPlanos();
@@ -53,11 +57,64 @@ export class SubscriptionController {
             rapidocPlanos.forEach(p => planosMap.set(p.uuid, p));
 
             const normalizedPlans: any[] = [];
-            for (const p of plans) {
-                const paymentTypeReq = String(p.paymentType || '').toUpperCase();
-                const planUuid = p?.plan?.uuid || p?.uuid; // permitir formatos flexíveis
+            if (Array.isArray(plans) && plans.length > 0) {
+                for (const p of plans) {
+                    const paymentTypeReq = String(p.paymentType || '').toUpperCase();
+                    const planUuid = p?.plan?.uuid || p?.uuid; // permitir formatos flexíveis
+                    if (!planUuid) {
+                        return res.status(400).json({ error: 'Cada item em plans deve possuir plan.uuid.' });
+                    }
+                    const planoOriginal = planosMap.get(planUuid);
+                    if (planoOriginal) {
+                        const originalPaymentType = String(planoOriginal.paymentType || '').toUpperCase();
+                        if (originalPaymentType === 'L') {
+                            if (!['S', 'A'].includes(paymentTypeReq)) {
+                                return res.status(400).json({ error: `paymentType inválido para plano flexível (uuid=${planUuid}). Use S ou A.` });
+                            }
+                        } else if (originalPaymentType && originalPaymentType !== paymentTypeReq) {
+                            return res.status(400).json({ error: `paymentType (${paymentTypeReq}) não corresponde ao plano (${originalPaymentType}) uuid=${planUuid}.` });
+                        }
+                    } else {
+                        // Se não encontrou plano para validar, ainda inclui (pode ser recém-criado ou falha na listagem)
+                        console.warn(`[createRapidocBeneficiary] Plano uuid=${planUuid} não encontrado na listagem Rapidoc.`);
+                    }
+                    if (!paymentTypeReq) {
+                        return res.status(400).json({ error: 'Cada plano deve possuir paymentType.' });
+                    }
+                    normalizedPlans.push({
+                        paymentType: paymentTypeReq,
+                        plan: { uuid: planUuid }
+                    });
+                }
+            } else {
+                // Derivar do plano local via planoId ou pelo vínculo na assinatura
+                let planoDocId: string | undefined = planoId;
+                if (!planoDocId && assinaturaId) {
+                    try {
+                        const assRef = db.collection('assinaturas').doc(assinaturaId);
+                        const assDoc = await assRef.get();
+                        const assData: any = assDoc.exists ? assDoc.data() : undefined;
+                        if (assData && assData.planoId) planoDocId = String(assData.planoId);
+                    } catch (e) {
+                        console.warn('[createRapidocBeneficiary] Não foi possível obter planoId pela assinatura.', e);
+                    }
+                }
+                if (!planoDocId) {
+                    return res.status(400).json({ error: 'Não foi possível determinar o plano. Informe plans ou planoId.' });
+                }
+                const planoRef = db.collection('planos').doc(planoDocId);
+                const planoSnap = await planoRef.get();
+                if (!planoSnap.exists) {
+                    return res.status(404).json({ error: 'Plano informado não encontrado.' });
+                }
+                const planoData: any = planoSnap.data();
+                const planUuid = String(planoData.uuidRapidocPlano || '').trim();
+                const paymentTypeReq = String(planoData.remotePaymentType || planoData.paymentType || '').toUpperCase();
                 if (!planUuid) {
-                    return res.status(400).json({ error: 'Cada item em plans deve possuir plan.uuid.' });
+                    return res.status(400).json({ error: 'Plano local não possui uuidRapidocPlano.' });
+                }
+                if (!paymentTypeReq) {
+                    return res.status(400).json({ error: 'Plano local não possui paymentType/remotePaymentType.' });
                 }
                 const planoOriginal = planosMap.get(planUuid);
                 if (planoOriginal) {
@@ -69,24 +126,15 @@ export class SubscriptionController {
                     } else if (originalPaymentType && originalPaymentType !== paymentTypeReq) {
                         return res.status(400).json({ error: `paymentType (${paymentTypeReq}) não corresponde ao plano (${originalPaymentType}) uuid=${planUuid}.` });
                     }
-                } else {
-                    // Se não encontrou plano para validar, ainda inclui (pode ser recém-criado ou falha na listagem)
-                    console.warn(`[createRapidocBeneficiary] Plano uuid=${planUuid} não encontrado na listagem Rapidoc.`);
                 }
-                if (!paymentTypeReq) {
-                    return res.status(400).json({ error: 'Cada plano deve possuir paymentType.' });
-                }
-                normalizedPlans.push({
-                    paymentType: paymentTypeReq,
-                    plan: { uuid: planUuid }
-                });
+                normalizedPlans.push({ paymentType: paymentTypeReq, plan: { uuid: planUuid } });
             }
 
             // 3. Normalizar telefone (apenas dígitos) conforme exemplos; não enviamos country aqui.
             const digitsPhone = String(phone || '').replace(/\D/g, '');
             // 11 dígitos esperado (DDD + número). Não adicionamos DDI, exemplo documentação.
-            // para satisfazer tipos estritos, garantimos que phone seja string (padrão vazio se omitido)
-            const normalizedPhone = digitsPhone.length >= 10 ? digitsPhone : '';
+            // se não atender mínimo, omitimos o campo phone
+            const normalizedPhone = digitsPhone.length >= 10 ? digitsPhone : undefined;
             
             // 4. Chamada Rapidoc
             // Regra: Rapidoc não permite holder == cpf do beneficiário.
