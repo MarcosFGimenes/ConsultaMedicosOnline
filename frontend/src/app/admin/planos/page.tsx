@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
 import {
   Package,
   Plus,
@@ -16,6 +17,80 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+function EditPlanoModal({ plano, open, onClose, onSave }: { plano: any, open: boolean, onClose: () => void, onSave: (data: any) => void }) {
+  const [form, setForm] = useState({
+    tipo: '',
+    preco: '',
+    periodicidade: '',
+    descricao: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    if (plano && open) {
+      setForm({
+        tipo: plano.tipo || '',
+        preco: String(plano.preco ?? plano.valor ?? ''),
+        periodicidade: plano.periodicidade || '',
+        descricao: plano.descricao || '',
+      });
+      setErro('');
+    }
+  }, [plano, open]);
+
+  if (!open) return null;
+
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    setErro('');
+    if (!form.tipo.trim()) return setErro('Nome do plano obrigatório.');
+    if (!form.preco.trim() || isNaN(Number(form.preco)) || Number(form.preco) <= 0) return setErro('Preço inválido.');
+    setSubmitting(true);
+    try {
+      await onSave({
+        tipo: form.tipo.trim(),
+        preco: Number(form.preco),
+        periodicidade: form.periodicidade.trim(),
+        descricao: form.descricao.trim(),
+      });
+      onClose();
+    } catch (err: any) {
+      setErro(err?.message || 'Erro ao salvar.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-md p-6 relative">
+        <button className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-white" onClick={onClose}>
+          <XCircle className="w-6 h-6" />
+        </button>
+        <h2 className="text-xl font-bold mb-4">Editar Plano</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Nome do Plano" value={form.tipo} onChange={e => handleChange('tipo', e.target.value)} required />
+          <Input label="Preço" type="number" min="0" step="0.01" value={form.preco} onChange={e => handleChange('preco', e.target.value)} required />
+          <Input label="Periodicidade" value={form.periodicidade} onChange={e => handleChange('periodicidade', e.target.value)} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Descrição</label>
+            <textarea value={form.descricao} onChange={e => handleChange('descricao', e.target.value)} rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+          </div>
+          {erro && <div className="text-red-600 text-sm">{erro}</div>}
+          <div className="flex justify-end gap-2 mt-4">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" variant="primary" disabled={submitting}>{submitting ? 'Salvando...' : 'Salvar'}</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 import { getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
@@ -23,6 +98,34 @@ export default function AdminPlanosPage() {
   const [planos, setPlanos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
+  const [editPlano, setEditPlano] = useState<any>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const handleEdit = (plano: any) => {
+    setEditPlano(plano);
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async (data: any) => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    if (!user) throw new Error('Usuário não autenticado.');
+    const token = await user.getIdToken();
+    const res = await fetch(`${API_BASE}/planos/${editPlano.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'Erro ao editar plano.');
+    }
+    // Atualiza lista local
+    setPlanos((prev) => prev.map((p) => (p.id === editPlano.id ? { ...p, ...data } : p)));
+  };
 
   useEffect(() => {
     const fetchPlanos = async () => {
@@ -219,10 +322,11 @@ export default function AdminPlanosPage() {
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(plano)}>
                         <Edit className="w-4 h-4 mr-1" />
                         Editar
                       </Button>
+                        <EditPlanoModal plano={editPlano} open={editOpen} onClose={() => setEditOpen(false)} onSave={handleEditSave} />
                       <Button variant="danger" size="sm">
                         <Trash2 className="w-4 h-4 mr-1" />
                         Excluir
