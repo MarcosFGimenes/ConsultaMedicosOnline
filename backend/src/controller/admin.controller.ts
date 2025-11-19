@@ -127,11 +127,20 @@ export class AdminController {
       // Número de planos e média de valor dos planos
       let numeroPlanos = (planosSnap as any).size ?? 0;
       let mediaValorPlanos = 0;
+      let planosDetalhados: Array<{
+        id: string;
+        nome: string;
+        valor: number;
+        assinantes: number;
+        valorTotal: number;
+      }> = [];
       if (numeroPlanos > 0) {
         let soma = 0;
         let count = 0;
+        const planosArr: any[] = [];
         (planosSnap as any).forEach((doc: any) => {
           const data = doc.data();
+          planosArr.push({ id: doc.id, ...data });
           const preco = Number(data.preco);
           if (!isNaN(preco)) {
             soma += preco;
@@ -139,6 +148,30 @@ export class AdminController {
           }
         });
         if (count > 0) mediaValorPlanos = soma / count;
+
+        // Buscar assinaturas agrupadas por plano
+        // Supondo que cada assinatura tem um campo planoId (referência ao id do plano)
+        const assinaturasSnap = await db.collection('assinaturas').get();
+        const assinaturasPorPlano: Record<string, number> = {};
+        (assinaturasSnap as any).forEach((doc: any) => {
+          const data = doc.data();
+          const planoId = data.planoId;
+          if (planoId) {
+            assinaturasPorPlano[planoId] = (assinaturasPorPlano[planoId] || 0) + 1;
+          }
+        });
+
+        planosDetalhados = planosArr.map((plano) => {
+          const valor = Number(plano.preco) || 0;
+          const assinantes = assinaturasPorPlano[plano.id] || 0;
+          return {
+            id: plano.id,
+            nome: plano.tipo || plano.descricao || plano.nome || plano.id,
+            valor,
+            assinantes,
+            valorTotal: valor * assinantes,
+          };
+        });
       }
 
       // Faturamento (Asaas) - melhor esforço, primeira página
@@ -178,7 +211,8 @@ export class AdminController {
         faturamento,
         planos: {
           numeroPlanos,
-          mediaValorPlanos
+          mediaValorPlanos,
+          detalhados: planosDetalhados
         }
       });
     } catch (error: any) {
