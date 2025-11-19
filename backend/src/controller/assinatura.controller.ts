@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { salvarAssinatura } from '../services/firestore.service.js';
 import { verificarPrimeiroPagamentoAssinatura } from '../services/asaas.service.js';
-import { verificarAssinaturaPorCpf } from '../services/asaas.service.js';
 import axios from 'axios';
 import { configDotenv } from 'dotenv';
 configDotenv();
@@ -28,10 +27,19 @@ export class AssinaturaController {
             }
             const plano = planoDoc.data();
 
-            // Verifica se existe assinatura no Asaas
-            const assinaturaCheck = await verificarAssinaturaPorCpf(assinatura.cpfUsuario);
-            if (!assinaturaCheck.assinaturaOk) {
-                return res.status(404).json({ error: 'Assinatura não encontrada no Asaas para este CPF.' });
+            // Verifica existência da assinatura no Asaas pelo id informado
+            const ASAAS_API_URL = process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3';
+            const ASAAS_API_KEY = process.env.ASAAS_API_KEY as string;
+            let assinaturaAsaas: any | undefined;
+            try {
+                const subResp = await axios.get(`${ASAAS_API_URL}/subscriptions/${assinatura.idAssinatura}`,
+                    { headers: { access_token: ASAAS_API_KEY } }
+                );
+                assinaturaAsaas = subResp.data;
+            } catch (e: any) {
+                const status = e?.response?.status;
+                const detail = e?.response?.data;
+                return res.status(404).json({ error: 'Assinatura não encontrada no Asaas pelo id informado.', detail });
             }
 
             // Verifica se está paga
@@ -39,6 +47,15 @@ export class AssinaturaController {
             if (!pagamentoCheck.pago) {
                 return res.status(402).json({ error: 'Assinatura não está paga.' });
             }
+
+            // Preencher ciclo e (fallback) forma de pagamento a partir da assinatura recuperada
+            let cicloAssinatura: string | undefined = assinaturaAsaas?.cycle;
+            let formaPagamentoAssinatura: string | undefined = assinaturaAsaas?.billingType;
+
+            // Derivar data de início e forma de pagamento do primeiro pagamento quitado
+            const payment = pagamentoCheck.pagamento || {};
+            const formaPagamentoEfetiva = payment.billingType || formaPagamentoAssinatura;
+            const dataInicio = (payment.paymentDate || payment.receivedDate || payment.dueDate || new Date().toISOString()).substring(0, 10);
 
             // Verifica se tem conta no Rapidoc
             let rapidocContaExiste = false;
@@ -67,6 +84,9 @@ export class AssinaturaController {
                 planoDescricao: plano?.descricao,
                 planoEspecialidades: plano?.especialidades,
                 planoPreco: plano?.preco,
+                ciclo: cicloAssinatura,
+                formaPagamento: formaPagamentoEfetiva,
+                dataInicio,
             };
             const result = await salvarAssinatura(assinaturaComPlano);
             return res.status(201).json({ message: 'Assinatura salva com sucesso.', id: result.id });
