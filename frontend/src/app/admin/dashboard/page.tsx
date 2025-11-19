@@ -29,6 +29,10 @@ import { app } from '@/lib/firebase';
 type DashboardData = {
   totais: { usuarios: number };
   faturamento: { mesAtual: number };
+  planos?: {
+    numeroPlanos: number;
+    mediaValorPlanos: number;
+  };
 };
 
 export default function AdminDashboardPage() {
@@ -125,10 +129,10 @@ export default function AdminDashboardPage() {
                   Planos Ativos
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  5
+                  {loading ? '...' : erro ? '-' : dashboard?.planos?.numeroPlanos ?? '-'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  3 individuais, 2 familiares
+                  {loading ? '...' : erro ? '-' : `Média: R$ ${dashboard?.planos?.mediaValorPlanos?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
