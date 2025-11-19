@@ -33,21 +33,48 @@ export default function HomePage() {
     setErro("");
     if (!selectedRole) { setErro('Por favor, selecione um perfil'); return; }
 
-    // Se for admin, verifica se o email é admin no Firestore
-    if (selectedRole === 'admin') {
-      try {
-        const q = query(collection(db, 'usuarios'), where('email', '==', email), where('tipo', '==', 'admin'));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          setErro('Nenhum administrador encontrado com este email.');
-          return;
-        }
-      } catch (err) {
-        setErro('Erro ao verificar administrador.');
-        return;
-      }
+    // 1. Verifica tipo do usuário no backend
+    let tipoReal: string | null = null;
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const resp = await fetch(`${API_BASE}/auth/tipo-usuario`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await resp.json();
+      tipoReal = (data.tipo || null);
+    } catch {
+      setErro('Erro ao verificar tipo da conta.');
+      return;
     }
 
+    // Normaliza nomes possíveis
+    const mapTipo: Record<string, UserRole> = {
+      'admin': 'admin',
+      'administrador': 'admin',
+      'subscriber': 'subscriber',
+      'assinante': 'subscriber',
+      'dependent': 'dependent',
+      'dependente': 'dependent',
+    };
+    const tipoNormalizado = tipoReal ? (mapTipo[String(tipoReal).toLowerCase()] || null) : null;
+
+    if (!tipoNormalizado) {
+      setErro('Conta não encontrada. Verifique o email digitado.');
+      return;
+    }
+    if (tipoNormalizado !== selectedRole) {
+      const nomes: Record<UserRole, string> = {
+        admin: 'Administrador',
+        subscriber: 'Assinante',
+        dependent: 'Dependente',
+      };
+      setErro(`Este email pertence a uma conta do tipo "${nomes[tipoNormalizado]}". Selecione o perfil correto para continuar.`);
+      return;
+    }
+
+    // 2. Login Firebase Auth
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const user = userCred.user;
