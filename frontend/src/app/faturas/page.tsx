@@ -1,12 +1,11 @@
 'use client';
 
-
 type InvoiceStatus = 'paid' | 'pending' | 'overdue';
-import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { useEffect, useState } from 'react';
 import {
   CreditCard,
   Download,
@@ -18,7 +17,6 @@ import {
   FileText,
   Eye,
 } from 'lucide-react';
-
 
 type FaturaApi = {
   id: string;
@@ -45,8 +43,6 @@ interface Invoice {
   description?: string;
 }
 
-// Não usa mais MOCK_INVOICES
-
 const STATUS_CONFIG: Record<
   InvoiceStatus,
   { label: string; variant: 'success' | 'warning' | 'danger'; icon: any }
@@ -68,10 +64,10 @@ const STATUS_CONFIG: Record<
   },
 };
 
-
 export default function FaturasPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -82,14 +78,11 @@ export default function FaturasPage() {
       .then((res) => res.json())
       .then((json) => {
         const faturas: FaturaApi[] = json.faturas || [];
-        // Mapear para Invoice
         const invoicesMapped: Invoice[] = faturas.map((f) => {
-          // status: RECEIVED = paid, PENDING = pending, OVERDUE = overdue
           let status: InvoiceStatus = 'pending';
           if (f.status === 'RECEIVED') status = 'paid';
           else if (f.status === 'OVERDUE') status = 'overdue';
           else if (f.status === 'PENDING') status = 'pending';
-          // Referência: ano-mês do dueDate
           let referenceMonth = '';
           if (f.dueDate) {
             const [ano, mes] = f.dueDate.split('-');
@@ -136,6 +129,77 @@ export default function FaturasPage() {
   const totalPending = invoices
     .filter((inv: Invoice) => inv.status === 'pending')
     .reduce((sum: number, inv: Invoice) => sum + inv.amount, 0);
+
+  function PaymentModal({ invoice, onClose }: { invoice: Invoice | null; onClose: () => void }) {
+    if (!invoice) return null;
+
+    const isPix = invoice.paymentMethod?.toLowerCase().includes('pix');
+    const isBoleto = invoice.paymentMethod?.toLowerCase().includes('boleto');
+    const isCartao = invoice.paymentMethod?.toLowerCase().includes('cartao') || invoice.paymentMethod?.toLowerCase().includes('crédito');
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg max-w-md w-full p-6 relative">
+          <button
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+            onClick={onClose}
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+          <h2 className="text-lg font-bold mb-4">Pagamento da Fatura</h2>
+          <div className="mb-4">
+            <div className="text-gray-700 dark:text-gray-200 font-medium mb-2">
+              Valor: <span className="font-bold">{invoice.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+            </div>
+            <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+              Vencimento: {new Date(invoice.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+            </div>
+          </div>
+          {isPix && (
+            <div className="mb-4">
+              <div className="font-semibold mb-2">Pagamento via PIX</div>
+              <div className="bg-gray-100 dark:bg-gray-800 rounded p-2 mb-2 text-xs break-all select-all">
+                {invoice.description || 'Chave/código PIX indisponível'}
+              </div>
+            </div>
+          )}
+          {isBoleto && (
+            <div className="mb-4">
+              <div className="font-semibold mb-2">Pagamento via Boleto</div>
+              {invoice.bankSlipUrl ? (
+                <a
+                  href={invoice.bankSlipUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                >
+                  Baixar Boleto
+                </a>
+              ) : (
+                <div className="text-sm text-gray-500">Boleto indisponível</div>
+              )}
+            </div>
+          )}
+          {isCartao && (
+            <div className="mb-4">
+              <div className="font-semibold mb-2">Pagamento via Cartão</div>
+              <div className="text-sm text-gray-500">Entre em contato com o suporte ou acesse o link de pagamento do cartão (se disponível).</div>
+            </div>
+          )}
+          {!isPix && !isBoleto && !isCartao && (
+            <div className="mb-4 text-sm text-gray-500">Forma de pagamento não reconhecida.</div>
+          )}
+          <button
+            className="mt-2 w-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+            onClick={onClose}
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -305,7 +369,7 @@ export default function FaturasPage() {
                             </a>
                           )}
                           {invoice.status === 'pending' && (
-                            <Button variant="primary" size="sm">
+                            <Button variant="primary" size="sm" onClick={() => setSelectedInvoice(invoice)}>
                               Pagar
                             </Button>
                           )}
@@ -402,7 +466,7 @@ export default function FaturasPage() {
                       </a>
                     )}
                     {invoice.status === 'pending' && (
-                      <Button variant="primary" size="sm" className="flex-1">
+                      <Button variant="primary" size="sm" className="flex-1" onClick={() => setSelectedInvoice(invoice)}>
                         Pagar
                       </Button>
                     )}
@@ -413,6 +477,9 @@ export default function FaturasPage() {
           );
         })}
       </div>
+      {selectedInvoice && (
+        <PaymentModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} />
+      )}
     </DashboardLayout>
   );
 }
