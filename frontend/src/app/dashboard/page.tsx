@@ -28,6 +28,9 @@ type DashboardData = {
   rapidoc: any;
   consultas: any[];
   faturas: any[];
+  statusAssinatura?: string;
+  proximaCobranca?: string;
+  numeroDependentes?: number;
 };
 
 export default function DashboardPage() {
@@ -35,7 +38,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard')
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    fetch(`${apiBase}/dashboard`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => res.json())
       .then((json) => {
         setData(json);
@@ -45,9 +52,8 @@ export default function DashboardPage() {
   }, []);
 
   // Helpers
-  const assinaturaAtiva = data?.assinaturas?.[0];
-  const statusAssinatura = assinaturaAtiva ? 'Ativo' : 'Inativo';
-  const dependentesCount = data?.beneficiarios?.length || 0;
+  const statusAssinatura = data?.statusAssinatura === 'ativa' ? 'Ativo' : 'Inativo';
+  const dependentesCount = typeof data?.numeroDependentes === 'number' ? data.numeroDependentes : (data?.beneficiarios?.length || 0);
   const consultasEsteMes = data?.consultas?.filter((c) => {
     if (!c.date) return false;
     const [dia, mes, ano] = c.date.split('/');
@@ -60,9 +66,11 @@ export default function DashboardPage() {
     );
   }).length || 0;
 
-  // Próxima cobrança: menor dueDate de fatura PENDING
+  // Próxima cobrança: usar campo proximaCobranca se existir
   let proximaFatura = null;
-  if (data?.faturas?.length) {
+  if (data?.proximaCobranca) {
+    proximaFatura = { dueDate: data.proximaCobranca };
+  } else if (data?.faturas?.length) {
     proximaFatura = data.faturas
       .filter((f) => f.status === 'PENDING')
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
@@ -130,7 +138,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   Status da Assinatura
                 </p>
-                <Badge variant={assinaturaAtiva ? 'success' : 'danger'}>
+                <Badge variant={data?.statusAssinatura === 'ativa' ? 'success' : 'danger'}>
                   {statusAssinatura}
                 </Badge>
               </div>
@@ -149,7 +157,7 @@ export default function DashboardPage() {
                   Próxima Cobrança
                 </p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {proximaFatura ?
+                  {proximaFatura && proximaFatura.dueDate ?
                     new Date(proximaFatura.dueDate).toLocaleDateString('pt-BR') :
                     'Nenhuma pendente'}
                 </p>
