@@ -10,6 +10,8 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 import assinaturaRoutes from './routes/assinatura.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
 import planosRoutes from './routes/planos.routes.js';
+import planosDashboardRoutes from './routes/planosDashboard.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import faturasRoutes from './routes/faturas.routes.js';
 import agendamentoRoutes from './routes/agendamento.routes.js';
 import beneficiarioRoutes from './routes/beneficiario.routes.js';
@@ -39,10 +41,12 @@ app.use('/api', assinaturaRoutes);
 app.use('/api', usuarioRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', planosRoutes);
+app.use('/api', planosDashboardRoutes);
 app.use('/api', faturasRoutes);
 app.use('/api', agendamentoRoutes);
 app.use('/api', beneficiarioRoutes);
-app.use('/api', especialidadesRoutes);
+
+app.use('/api', authRoutes);
 
 export default app;
 

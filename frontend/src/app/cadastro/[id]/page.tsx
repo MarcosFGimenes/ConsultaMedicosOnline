@@ -82,6 +82,11 @@ export default function CadastroPage() {
         setMensagem("Preencha todos os campos pessoais obrigatórios.");
         return;
       }
+      const phoneDigits = form.telefone.replace(/\D/g, "");
+      if (phoneDigits.length !== 11) {
+        setMensagem("Telefone deve conter 11 dígitos (DDD + celular). Ex: 11998765432");
+        return;
+      }
     }
     if (step === 1) {
       if (!form.zipCode || !form.endereco || !form.numero || !form.bairro || !form.cidade || !form.estado) {
@@ -96,6 +101,26 @@ export default function CadastroPage() {
   const prevStep = () => {
     setMensagem("");
     setStep(s => (s > 0 ? s - 1 : s));
+  };
+
+  const extractErrorMessage = (data: any): string => {
+    if (!data) return "Erro ao criar assinatura.";
+    if (typeof data === "string") return data;
+    if (typeof data?.error === "string") return data.error;
+    if (data?.error && typeof data.error === "object") {
+      const desc = data.error.description || data.error.message;
+      const code = data.error.code;
+      if (desc) return code ? `${desc} (${code})` : desc;
+    }
+    if (data?.description || data?.message) {
+      const base = data.description || data.message;
+      return data.code ? `${base} (${data.code})` : base;
+    }
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return "Erro ao criar assinatura.";
+    }
   };
 
   const submitAssinatura = async () => {
@@ -155,7 +180,7 @@ export default function CadastroPage() {
         } catch {}
         router.push(`/aguardando-pagamento/${assinaturaId}`);
       } else {
-        setMensagem(data.error || "Erro ao criar assinatura.");
+        setMensagem(extractErrorMessage(data));
       }
     } catch {
       setMensagem("Erro de conexão com o servidor.");

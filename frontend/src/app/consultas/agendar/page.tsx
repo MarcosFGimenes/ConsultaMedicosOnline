@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -26,29 +26,11 @@ const STEPS = [
   { id: 6, title: 'Confirmação', icon: CheckCircle },
 ];
 
-const SPECIALTIES = [
-  'Cardiologia',
-  'Dermatologia',
-  'Pediatria',
-  'Psicologia',
-  'Clínico Geral',
-  'Ortopedia',
-  'Ginecologia',
-  'Oftalmologia',
-];
+// Será preenchido dinamicamente
 
-const AVAILABLE_TIMES = [
-  '08:00',
-  '09:00',
-  '10:00',
-  '11:00',
-  '14:00',
-  '15:00',
-  '16:00',
-  '17:00',
-];
+// Será preenchido dinamicamente
 
-export default function AgendarConsultaPage() {
+export default function Page() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     specialty: '',
@@ -57,6 +39,94 @@ export default function AgendarConsultaPage() {
     patient: '',
     notes: '',
   });
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  // Horários fixos para testes
+  const [availableTimes, setAvailableTimes] = useState<string[]>([
+    '08:00', '08:30', '09:00', '09:30', '10:00',
+    '10:30', '11:00', '11:30', '14:00', '14:30',
+    '15:00', '15:30', '16:00', '16:30', '17:00'
+  ]);
+  const [patients, setPatients] = useState<Array<{ id: string; name: string; cpf: string; relationship?: string }>>([]);
+  const [loadingSpecialties, setLoadingSpecialties] = useState(false);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingTimes, setLoadingTimes] = useState(false);
+
+
+  // Buscar especialidades do beneficiário principal (usuário logado) usando /dashboard
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    setLoadingSpecialties(true);
+
+    fetch(`${apiBase}/dashboard`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => {
+        const cpf = data?.usuario?.cpf;
+        if (!cpf) throw new Error('CPF não encontrado no dashboard');
+        return fetch(`${apiBase}/beneficiarios/${cpf}/especialidades`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      })
+      .then((res) => res.json())
+      .then((data) => {
+        // API pode retornar um array direto ou um objeto com campo `specialties`
+        if (Array.isArray(data)) {
+          // array de strings ou objetos
+          if (data.length && typeof data[0] === 'object') {
+            setSpecialties((data as any[]).map((s) => s.name || s));
+          } else {
+            setSpecialties(data as string[]);
+          }
+        } else if (data && Array.isArray(data.specialties)) {
+          setSpecialties((data.specialties as any[]).map((s) => s.name || s));
+        } else {
+          setSpecialties([]);
+        }
+        setLoadingSpecialties(false);
+      })
+      .catch(() => setLoadingSpecialties(false));
+  }, []);
+
+  // Buscar pacientes (usuário + dependentes) do dashboard
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    setLoadingPatients(true);
+    fetch(`${apiBase}/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const pacientes = [];
+        // Usuário logado
+        if (data?.usuario) {
+          pacientes.push({
+            id: data.usuario.cpf,
+            name: data.usuario.nome,
+            cpf: data.usuario.cpf,
+            relationship: 'Titular',
+          });
+        }
+        // Dependentes (beneficiarios)
+        if (Array.isArray(data?.beneficiarios)) {
+          data.beneficiarios.forEach((dep: any) => {
+            pacientes.push({
+              id: dep.cpf,
+              name: dep.nome,
+              cpf: dep.cpf,
+              relationship: dep.relationship || 'Dependente',
+            });
+          });
+        }
+        setPatients(pacientes);
+        setLoadingPatients(false);
+      })
+      .catch(() => setLoadingPatients(false));
+  }, []);
+
+  // Remover busca de horários da API: horários são fixos para testes
 
   const handleNext = () => {
     if (currentStep < STEPS.length) {
@@ -70,9 +140,30 @@ export default function AgendarConsultaPage() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Agendamento:', formData);
-    // Aqui faria a chamada à API
+  const handleSubmit = async () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return alert('Usuário não autenticado!');
+    try {
+      const res = await fetch(`${apiBase}/agendamentos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          especialidade: formData.specialty,
+          data: formData.date,
+          horario: formData.time,
+          pacienteId: formData.patient,
+          observacoes: formData.notes,
+        }),
+      });
+      if (!res.ok) throw new Error('Erro ao agendar consulta');
+      alert('Consulta agendada com sucesso!');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao agendar consulta');
+    }
   };
 
   return (
@@ -143,32 +234,36 @@ export default function AgendarConsultaPage() {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   Selecione a especialidade médica desejada
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {SPECIALTIES.map((specialty) => (
-                    <button
-                      key={specialty}
-                      onClick={() =>
-                        setFormData({ ...formData, specialty })
-                      }
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        formData.specialty === specialty
-                          ? 'border-primary bg-primary/5'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-                      }`}
-                    >
-                      <Stethoscope
-                        className={`w-6 h-6 mb-2 ${
+                {loadingSpecialties ? (
+                  <div className="text-center text-gray-400">Carregando especialidades...</div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {specialties.map((specialty) => (
+                      <button
+                        key={specialty}
+                        onClick={() =>
+                          setFormData({ ...formData, specialty })
+                        }
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${
                           formData.specialty === specialty
-                            ? 'text-primary'
-                            : 'text-gray-400'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
                         }`}
-                      />
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {specialty}
-                      </p>
-                    </button>
-                  ))}
-                </div>
+                      >
+                        <Stethoscope
+                          className={`w-6 h-6 mb-2 ${
+                            formData.specialty === specialty
+                              ? 'text-primary'
+                              : 'text-gray-400'
+                          }`}
+                        />
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {specialty}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -202,21 +297,27 @@ export default function AgendarConsultaPage() {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   Selecione o horário disponível
                 </p>
-                <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-                  {AVAILABLE_TIMES.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => setFormData({ ...formData, time })}
-                      className={`p-3 rounded-lg border-2 transition-all font-medium ${
-                        formData.time === time
-                          ? 'border-primary bg-primary text-white'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
+                {loadingTimes ? (
+                  <div className="text-center text-gray-400">Carregando horários...</div>
+                ) : availableTimes.length === 0 ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400">Nenhum horário disponível para esta especialidade e data.</div>
+                ) : (
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                    {availableTimes.map((time) => (
+                      <button
+                        key={time}
+                        onClick={() => setFormData({ ...formData, time })}
+                        className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                          formData.time === time
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -226,51 +327,41 @@ export default function AgendarConsultaPage() {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   Para quem é a consulta?
                 </p>
-                <div className="space-y-3">
-                  {[
-                    { id: 'self', name: 'Você', cpf: '123.456.789-00' },
-                    {
-                      id: 'dep1',
-                      name: 'Maria Silva',
-                      cpf: '987.654.321-00',
-                      relationship: 'Filha',
-                    },
-                    {
-                      id: 'dep2',
-                      name: 'João Silva',
-                      cpf: '456.789.123-00',
-                      relationship: 'Filho',
-                    },
-                  ].map((person) => (
-                    <button
-                      key={person.id}
-                      onClick={() =>
-                        setFormData({ ...formData, patient: person.id })
-                      }
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                        formData.patient === person.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {person.name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {person.cpf}
-                            {person.relationship &&
-                              ` • ${person.relationship}`}
-                          </p>
+                {loadingPatients ? (
+                  <div className="text-center text-gray-400">Carregando pacientes...</div>
+                ) : (
+                  <div className="space-y-3">
+                    {patients.map((person) => (
+                      <button
+                        key={person.id}
+                        onClick={() =>
+                          setFormData({ ...formData, patient: person.id })
+                        }
+                        className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                          formData.patient === person.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {person.name}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {person.cpf}
+                              {person.relationship &&
+                                ` • ${person.relationship}`}
+                            </p>
+                          </div>
+                          {formData.patient === person.id && (
+                            <CheckCircle className="w-5 h-5 text-primary" />
+                          )}
                         </div>
-                        {formData.patient === person.id && (
-                          <CheckCircle className="w-5 h-5 text-primary" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

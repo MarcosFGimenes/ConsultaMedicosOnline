@@ -22,7 +22,69 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { useEffect, useState } from 'react';
+import { getAuth } from 'firebase/auth';
+import { app } from '@/lib/firebase';
+
+type DashboardData = {
+  totais: { usuarios: number };
+  faturamento: { mesAtual: number };
+  planos?: {
+    numeroPlanos: number;
+    mediaValorPlanos: number;
+    detalhados?: Array<{
+      id: string;
+      nome: string;
+      valor: number;
+      assinantes: number;
+      valorTotal: number;
+    }>;
+  };
+  novosAssinantes?: Array<{
+    nome: string;
+    email: string;
+    plano: string;
+    data: string;
+    status: string;
+  }>;
+};
+
 export default function AdminDashboardPage() {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setLoading(true);
+      setErro("");
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+        const auth = getAuth(app);
+        const user = auth.currentUser;
+        if (!user) {
+          setErro("Usuário não autenticado.");
+          setLoading(false);
+          return;
+        }
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/admin/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) throw new Error('Erro ao buscar dados do dashboard');
+        const data = await res.json();
+        setDashboard(data);
+      } catch (e) {
+        setErro("Erro ao carregar dados do dashboard.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
+
   return (
     <DashboardLayout title="Dashboard Administrativo">
       {/* Cards de Estatísticas Principais */}
@@ -35,10 +97,11 @@ export default function AdminDashboardPage() {
                   Total de Assinantes
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  1,248
+                  {loading ? '...' : erro ? '-' : dashboard?.totais?.usuarios?.toLocaleString('pt-BR') ?? '-'}
                 </p>
                 <p className="text-xs text-success mt-1 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
+                  {/* Placeholder, ajuste depois se quiser variação real */}
                   +12% este mês
                 </p>
               </div>
@@ -57,10 +120,11 @@ export default function AdminDashboardPage() {
                   Receita Mensal
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  R$ 62.400
+                  {loading ? '...' : erro ? '-' : `R$ ${dashboard?.faturamento?.mesAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </p>
                 <p className="text-xs text-success mt-1 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
+                  {/* Placeholder, ajuste depois se quiser variação real */}
                   +8% este mês
                 </p>
               </div>
@@ -79,10 +143,10 @@ export default function AdminDashboardPage() {
                   Planos Ativos
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  5
+                  {loading ? '...' : erro ? '-' : dashboard?.planos?.numeroPlanos ?? '-'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  3 individuais, 2 familiares
+                  {loading ? '...' : erro ? '-' : `Média: R$ ${dashboard?.planos?.mediaValorPlanos?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
@@ -195,32 +259,42 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardBody>
             <div className="space-y-3">
-              {[
-                { nome: 'Básico Individual', valor: 'R$ 49,90', assinantes: 450, cor: 'bg-blue-100 dark:bg-slate-700 text-blue-600' },
-                { nome: 'Premium Individual', valor: 'R$ 89,90', assinantes: 320, cor: 'bg-purple-100 dark:bg-slate-700 text-purple-600' },
-                { nome: 'Básico Familiar', valor: 'R$ 149,90', assinantes: 280, cor: 'bg-green-100 dark:bg-slate-700 text-success' },
-                { nome: 'Premium Familiar', valor: 'R$ 249,90', assinantes: 198, cor: 'bg-orange-100 dark:bg-slate-700 text-warning' },
-              ].map((plano, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${plano.cor}`}>
-                      <Package className="w-5 h-5" />
+              {loading ? (
+                <div className="text-center text-gray-500">Carregando...</div>
+              ) : erro ? (
+                <div className="text-center text-danger">Erro ao carregar planos</div>
+              ) : dashboard?.planos?.detalhados && dashboard.planos.detalhados.length > 0 ? (
+                dashboard.planos.detalhados.map((plano, idx) => (
+                  <div
+                    key={plano.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-slate-700 text-blue-600`}>
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm">
+                          {plano.nome}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {plano.assinantes} assinantes
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {plano.nome}
+                    <div className="text-right">
+                      <p className="font-semibold text-primary">
+                        {`R$ ${plano.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {plano.assinantes} assinantes
+                      <p className="text-xs text-gray-500">
+                        Total: R$ {plano.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
-                  <p className="font-semibold text-primary">{plano.valor}</p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center text-gray-500">Nenhum plano cadastrado</div>
+              )}
             </div>
           </CardBody>
         </Card>
@@ -239,37 +313,43 @@ export default function AdminDashboardPage() {
             Novos Assinantes (Últimos 7 dias)
           </CardHeader>
           <CardBody>
-            <div className="space-y-3">
-              {[
-                { nome: 'João Silva', plano: 'Premium Familiar', data: 'Hoje', status: 'success' },
-                { nome: 'Maria Santos', plano: 'Básico Individual', data: 'Ontem', status: 'success' },
-                { nome: 'Pedro Costa', plano: 'Premium Individual', data: 'Há 2 dias', status: 'pending' },
-                { nome: 'Ana Oliveira', plano: 'Básico Familiar', data: 'Há 3 dias', status: 'success' },
-              ].map((assinante, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <UserPlus className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {assinante.nome}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {assinante.plano} • {assinante.data}
-                      </p>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center text-gray-500">Carregando...</div>
+              ) : erro ? (
+                <div className="text-center text-danger">Erro ao carregar assinantes</div>
+              ) : dashboard?.novosAssinantes && dashboard.novosAssinantes.length > 0 ? (
+                dashboard.novosAssinantes.slice(0, 4).map((assinante, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 via-white to-blue-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-2xl shadow-sm hover:shadow-lg transition-shadow border border-blue-100 dark:border-slate-700"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center shadow-md">
+                        <UserPlus className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white text-base flex items-center gap-2">
+                          {assinante.nome}
+                          {assinante.status === 'success' ? (
+                            <Badge variant="success" className="ml-2">Ativo</Badge>
+                          ) : (
+                            <Badge variant="warning" className="ml-2">Pendente</Badge>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                          <span className="font-medium text-primary">{assinante.email}</span>
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {assinante.plano} • {assinante.data}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  {assinante.status === 'success' ? (
-                    <Badge variant="success">Ativo</Badge>
-                  ) : (
-                    <Badge variant="warning">Pendente</Badge>
-                  )}
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center text-gray-500">Nenhum novo assinante</div>
+              )}
             </div>
           </CardBody>
         </Card>

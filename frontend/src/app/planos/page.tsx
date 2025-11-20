@@ -20,7 +20,7 @@ export default function PlanosPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
     
     fetch(`${API_BASE}/planos`)
       .then((res) => {

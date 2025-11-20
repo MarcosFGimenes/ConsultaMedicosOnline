@@ -185,6 +185,14 @@ Body (exemplo):
 { "nome": "João Silva Junior" }
 ```
 
+### POST /auth/tipo-usuario
+Verifica o tipo de usuario pelo email
+```json
+{
+	"email": "seuemail@email.com"
+}
+```
+
 ### GET /usuario/:cpf (protegido)
 Obtém dados do usuário no Firestore pelo CPF.
 

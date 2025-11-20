@@ -22,12 +22,13 @@ export default function LandingPage() {
       <Especialidades />
       <ComoFunciona />
       <section id="planos" className="py-16 sm:py-20 lg:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-emerald-600 mb-4">Nossos Planos</h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">Escolha o plano ideal para você e sua família</p>
           </div>
-          <PlansCards />
+          {/* Exibe todos os planos sem filtro de categoria */}
+          <PlansCards {...({ filter: "all" } as any)} />
         </div>
       </section>
       <Parceiros onOpenTermos={() => setTermosPageOpen(true)} />

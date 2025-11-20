@@ -85,7 +85,49 @@ export class DashboardController {
         } catch {}
       }
 
-      return res.status(200).json({ usuario, assinaturas, beneficiarios, rapidoc, consultas: consultasMapeadas, faturas });
+
+      // Status da assinatura (consultando endpoint de pagamento)
+      let statusAssinatura = 'inativa';
+      let assinaturaAtiva = null;
+      let idAssinaturaAtual = usuario?.idAssinaturaAtual || usuario?.idAssinatura;
+      if (idAssinaturaAtual) {
+        try {
+          // Chama o endpoint localmente (pode ser ajustado para chamada interna se necessário)
+          const baseUrl = process.env.BASE_URL;
+          const resp = await axios.get(`${baseUrl}/subscription/check-payment/${idAssinaturaAtual}`);
+          if (resp.data && resp.data.pago === true) {
+            statusAssinatura = 'ativa';
+          } else {
+            statusAssinatura = 'inativa';
+          }
+        } catch {
+          statusAssinatura = 'inativa';
+        }
+      }
+
+      // Data da próxima cobrança (menor dueDate de fatura pendente)
+      let proximaCobranca = null;
+      if (faturas && faturas.length > 0) {
+        const pendentes = faturas.filter(f => f.status === 'PENDING');
+        if (pendentes.length > 0) {
+          proximaCobranca = pendentes.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0].dueDate;
+        }
+      }
+
+      // Número de dependentes
+      const numeroDependentes = beneficiarios?.length || 0;
+
+      return res.status(200).json({
+        usuario,
+        assinaturas,
+        beneficiarios,
+        rapidoc,
+        consultas: consultasMapeadas,
+        faturas,
+        statusAssinatura,
+        proximaCobranca,
+        numeroDependentes
+      });
     } catch (error: any) {
       return res.status(500).json({ error: error.message || 'Erro ao buscar dashboard.' });
     }

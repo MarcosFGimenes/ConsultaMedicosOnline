@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,24 +19,25 @@ import {
 type TabType = 'personal' | 'address' | 'security';
 
 export default function MeusDadosPage() {
+
   const [activeTab, setActiveTab] = useState<TabType>('personal');
   const [personalData, setPersonalData] = useState({
-    name: 'Gustavo Silva Santos',
-    email: 'gustavo@email.com',
-    phone: '(11) 98765-4321',
-    cpf: '123.456.789-00',
-    birthDate: '1990-05-15',
-    gender: 'M',
+    name: '',
+    email: '',
+    phone: '',
+    cpf: '',
+    birthDate: '',
+    gender: '',
   });
 
   const [addressData, setAddressData] = useState({
-    zipCode: '12345-678',
-    street: 'Rua das Flores',
-    number: '123',
-    complement: 'Apto 45',
-    neighborhood: 'Centro',
-    city: 'São Paulo',
-    state: 'SP',
+    zipCode: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
   });
 
   const [securityData, setSecurityData] = useState({
@@ -45,20 +46,95 @@ export default function MeusDadosPage() {
     confirmPassword: '',
   });
 
+  // Buscar dados do usuário ao carregar a página
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    fetch(`${apiBase}/usuario/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        // Ajuste os campos conforme a resposta da API
+        setPersonalData({
+          name: data.nome || '',
+          email: data.email || '',
+          phone: data.telefone || '',
+          cpf: data.cpf || '',
+          birthDate: data.dataNascimento ? data.dataNascimento.substring(0, 10) : '',
+          gender: data.genero || '',
+        });
+        setAddressData({
+          zipCode: data.endereco?.cep || '',
+          street: data.endereco?.rua || '',
+          number: data.endereco?.numero || '',
+          complement: data.endereco?.complemento || '',
+          neighborhood: data.endereco?.bairro || '',
+          city: data.endereco?.cidade || '',
+          state: data.endereco?.estado || '',
+        });
+      });
+  }, []);
+
   const tabs = [
     { id: 'personal' as TabType, label: 'Dados Pessoais', icon: User },
     { id: 'address' as TabType, label: 'Endereço', icon: MapPin },
     { id: 'security' as TabType, label: 'Segurança', icon: Lock },
   ];
 
-  const handleSave = () => {
-    console.log('Salvando dados...', {
-      activeTab,
-      personalData,
-      addressData,
-      securityData,
-    });
-    // Aqui faria a chamada à API
+  const handleSave = async () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return alert('Usuário não autenticado!');
+
+    let body: any = {};
+    let endpoint = '';
+    let method = 'PUT';
+
+    if (activeTab === 'personal') {
+      endpoint = '/usuario/me';
+      body = {
+        nome: personalData.name,
+        email: personalData.email,
+        telefone: personalData.phone,
+        dataNascimento: personalData.birthDate,
+        genero: personalData.gender,
+      };
+    } else if (activeTab === 'address') {
+      endpoint = '/usuario/me/endereco';
+      body = {
+        cep: addressData.zipCode,
+        rua: addressData.street,
+        numero: addressData.number,
+        complemento: addressData.complement,
+        bairro: addressData.neighborhood,
+        cidade: addressData.city,
+        estado: addressData.state,
+      };
+    } else if (activeTab === 'security') {
+      endpoint = '/usuario/me/senha';
+      body = {
+        senhaAtual: securityData.currentPassword,
+        novaSenha: securityData.newPassword,
+        confirmarSenha: securityData.confirmPassword,
+      };
+    }
+
+    try {
+      const res = await fetch(`${apiBase}${endpoint}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('Erro ao salvar dados');
+      alert('Dados salvos com sucesso!');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao salvar dados');
+    }
   };
 
   return (
