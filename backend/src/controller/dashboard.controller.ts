@@ -85,12 +85,24 @@ export class DashboardController {
         } catch {}
       }
 
-      // Status da assinatura (ativa/inativa)
+
+      // Status da assinatura (consultando endpoint de pagamento)
       let statusAssinatura = 'inativa';
       let assinaturaAtiva = null;
-      if (assinaturas && assinaturas.length > 0) {
-        assinaturaAtiva = assinaturas.find(a => (a.status === 'ACTIVE' || a.status === 'ATIVA' || a.status === 'ativo' || a.status === 'active')) || assinaturas[0];
-        statusAssinatura = assinaturaAtiva?.status || 'inativa';
+      let idAssinaturaAtual = usuario?.idAssinaturaAtual || usuario?.idAssinatura;
+      if (idAssinaturaAtual) {
+        try {
+          // Chama o endpoint localmente (pode ser ajustado para chamada interna se necessário)
+          const baseUrl = process.env.BASE_URL;
+          const resp = await axios.get(`${baseUrl}/subscription/check-payment/${idAssinaturaAtual}`);
+          if (resp.data && resp.data.pago === true) {
+            statusAssinatura = 'ativa';
+          } else {
+            statusAssinatura = 'inativa';
+          }
+        } catch {
+          statusAssinatura = 'inativa';
+        }
       }
 
       // Data da próxima cobrança (menor dueDate de fatura pendente)
