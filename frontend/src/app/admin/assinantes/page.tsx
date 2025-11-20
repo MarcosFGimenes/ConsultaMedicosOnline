@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
@@ -18,78 +18,150 @@ import {
   UserPlus,
   Package,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Dialog } from '@/components/ui/Dialog';
+
+// Corrigido: definição da interface AssinanteItem estava fora do lugar e sem o "interface"
+interface AssinanteItem {
+  id: string;
+  nome: string;
+  email: string;
+  cpf: string;
+  plano: string;
+  status: string;
+  dataAdesao: string;
+  ultimoPagamento: string;
+  dependentes: number;
+  valorMensal: number;
+  faturas?: any[];
+}
+
+interface AssinaturaDoc {
+  id: string;
+  cpfUsuario: string;
+  planoId?: string;
+  planoTipo?: string;
+  planoDescricao?: string;
+  planoPreco?: number;
+  dataInicio?: string; // YYYY-MM-DD
+  ciclo?: string;
+  formaPagamento?: string;
+}
+
+interface UsuarioDoc {
+  cpf: string;
+  nome?: string;
+  email?: string;
+}
+
+function formatarDataBR(dataISO: string | null | undefined) {
+  if (!dataISO) return '—';
+  return dataISO.split('-').reverse().join('/');
+}
 
 export default function AdminAssinantesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [assinantes] = useState([
-    {
-      id: 1,
-      nome: 'João Silva Santos',
-      email: 'joao.silva@email.com',
-      cpf: '123.456.789-00',
-      plano: 'Premium Familiar',
-      status: 'ativo',
-      dataAdesao: '15/01/2024',
-      ultimoPagamento: '05/11/2025',
-      dependentes: 3,
-      valorMensal: 249.90,
-    },
-    {
-      id: 2,
-      nome: 'Maria Santos Oliveira',
-      email: 'maria.santos@email.com',
-      cpf: '987.654.321-00',
-      plano: 'Básico Individual',
-      status: 'ativo',
-      dataAdesao: '20/03/2024',
-      ultimoPagamento: '03/11/2025',
-      dependentes: 0,
-      valorMensal: 49.90,
-    },
-    {
-      id: 3,
-      nome: 'Pedro Costa Lima',
-      email: 'pedro.costa@email.com',
-      cpf: '456.789.123-00',
-      plano: 'Premium Individual',
-      status: 'pendente',
-      dataAdesao: '05/11/2025',
-      ultimoPagamento: '-',
-      dependentes: 0,
-      valorMensal: 89.90,
-    },
-    {
-      id: 4,
-      nome: 'Ana Paula Ferreira',
-      email: 'ana.ferreira@email.com',
-      cpf: '321.654.987-00',
-      plano: 'Básico Familiar',
-      status: 'ativo',
-      dataAdesao: '10/02/2024',
-      ultimoPagamento: '01/11/2025',
-      dependentes: 2,
-      valorMensal: 149.90,
-    },
-    {
-      id: 5,
-      nome: 'Carlos Mendes Souza',
-      email: 'carlos.mendes@email.com',
-      cpf: '789.123.456-00',
-      plano: 'Premium Familiar',
-      status: 'suspenso',
-      dataAdesao: '05/05/2024',
-      ultimoPagamento: '10/09/2025',
-      dependentes: 4,
-      valorMensal: 249.90,
-    },
-  ]);
+  const [assinantes, setAssinantes] = useState<AssinanteItem[]>([]);
+  const [assinantesPagamentos, setAssinantesPagamentos] = useState<Record<string, string>>({});
+  const [modalAssinante, setModalAssinante] = useState<AssinanteItem | null>(null);
+  const [modalFaturas, setModalFaturas] = useState<any[] | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
 
-  const filteredAssinantes = assinantes.filter(a => 
-    a.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.cpf.includes(searchTerm)
-  );
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // Pega token do localStorage se existir
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const [assinaturasResp, usuariosResp] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/assinaturas`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/usuarios`, { headers }),
+        ]);
+        if (!assinaturasResp.ok) throw new Error('Erro ao buscar assinaturas');
+        if (!usuariosResp.ok) throw new Error('Erro ao buscar usuários');
+        const assinaturasData: AssinaturaDoc[] = await assinaturasResp.json();
+        const usuariosData: UsuarioDoc[] = await usuariosResp.json();
+
+        const usuarioPorCpf = new Map<string, UsuarioDoc>();
+        usuariosData.forEach(u => { if (u.cpf) usuarioPorCpf.set(u.cpf, u); });
+
+        const itens: AssinanteItem[] = assinaturasData.map(a => {
+          const usuario = usuarioPorCpf.get(a.cpfUsuario);
+          const nome = usuario?.nome || '—';
+          const email = usuario?.email || '—';
+          const cpf = a.cpfUsuario;
+          const plano = a.planoDescricao || a.planoTipo || a.planoId || 'Plano';
+          const valorMensal = typeof a.planoPreco === 'number' ? a.planoPreco : 0;
+          const dataAdesaoISO = a.dataInicio || '';
+          const dataAdesao = dataAdesaoISO
+            ? dataAdesaoISO.split('-').reverse().join('/')
+            : '—';
+          let status = 'pendente';
+          if (a.formaPagamento && a.dataInicio) status = 'ativo';
+          const ultimoPagamento = '—';
+          return {
+            id: a.id,
+            nome,
+            email,
+            cpf,
+            plano,
+            status,
+            dataAdesao,
+            ultimoPagamento,
+            dependentes: 0,
+            valorMensal,
+          };
+        });
+        setAssinantes(itens);
+
+        // Buscar último pagamento para cada assinante (paralelo, mas limitado)
+        const pagamentos: Record<string, string> = {};
+        await Promise.all(itens.map(async (a) => {
+          try {
+            const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/faturas?cpf=${a.cpf}`, { headers });
+            if (!resp.ok) throw new Error('Erro ao buscar faturas');
+            const data = await resp.json();
+            const faturas = data.faturas || [];
+            const pagas = faturas.filter((f: any) => f.status === 'RECEIVED');
+            if (pagas.length > 0) {
+              // Pega a mais recente
+              pagas.sort((a: any, b: any) => new Date(b.paymentDate || b.dueDate).getTime() - new Date(a.paymentDate || a.dueDate).getTime());
+              pagamentos[a.cpf] = formatarDataBR(pagas[0].paymentDate || pagas[0].dueDate);
+            } else {
+              pagamentos[a.cpf] = '—';
+            }
+          } catch {
+            pagamentos[a.cpf] = '—';
+          }
+        }));
+        setAssinantesPagamentos(pagamentos);
+      } catch (e: any) {
+        setError(e?.response?.data?.error || e?.message || 'Falha ao carregar assinantes.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const filteredAssinantes = useMemo(() => {
+    return assinantes.map(a => ({
+      ...a,
+      ultimoPagamento: assinantesPagamentos[a.cpf] || '—',
+    })).filter(a =>
+      a.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.cpf.includes(searchTerm)
+    );
+  }, [assinantes, assinantesPagamentos, searchTerm]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -204,9 +276,64 @@ export default function AdminAssinantesPage() {
         </CardBody>
       </Card>
 
+      {/* Loading / Erro */}
+      {loading && (
+        <Card className="mb-6">
+          <CardBody>
+            <p className="text-gray-600 dark:text-gray-400">Carregando assinantes...</p>
+          </CardBody>
+        </Card>
+      )}
+      {error && !loading && (
+        <Card className="mb-6 border border-red-300 dark:border-red-600">
+          <CardBody>
+            <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => {
+              setLoading(true); setError('');
+              (async () => {
+                try {
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+                  const headers: HeadersInit = {
+                    'Content-Type': 'application/json',
+                  };
+                  if (token) headers['Authorization'] = `Bearer ${token}`;
+                  const [assinaturasResp, usuariosResp] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/assinaturas`, { headers }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/usuarios`, { headers }),
+                  ]);
+                  if (!assinaturasResp.ok) throw new Error('Erro ao buscar assinaturas');
+                  if (!usuariosResp.ok) throw new Error('Erro ao buscar usuários');
+                  const assinaturasData: AssinaturaDoc[] = await assinaturasResp.json();
+                  const usuariosData: UsuarioDoc[] = await usuariosResp.json();
+                  const usuarioPorCpf = new Map<string, UsuarioDoc>();
+                  usuariosData.forEach(u => { if (u.cpf) usuarioPorCpf.set(u.cpf, u); });
+                  const itens: AssinanteItem[] = assinaturasData.map(a => {
+                    const usuario = usuarioPorCpf.get(a.cpfUsuario);
+                    const nome = usuario?.nome || '—';
+                    const email = usuario?.email || '—';
+                    const cpf = a.cpfUsuario;
+                    const plano = a.planoDescricao || a.planoTipo || a.planoId || 'Plano';
+                    const valorMensal = typeof a.planoPreco === 'number' ? a.planoPreco : 0;
+                    const dataAdesaoISO = a.dataInicio || '';
+                    const dataAdesao = dataAdesaoISO ? dataAdesaoISO.split('-').reverse().join('/') : '—';
+                    let status = 'pendente';
+                    if (a.formaPagamento && a.dataInicio) status = 'ativo';
+                    const ultimoPagamento = '—';
+                    return { id: a.id, nome, email, cpf, plano, status, dataAdesao, ultimoPagamento, dependentes: 0, valorMensal };
+                  });
+                  setAssinantes(itens);
+                } catch (e: any) {
+                  setError(e?.message || 'Falha ao carregar assinantes.');
+                } finally { setLoading(false); }
+              })();
+            }}>Tentar novamente</Button>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Lista de Assinantes */}
       <div className="space-y-4">
-        {filteredAssinantes.map((assinante) => (
+        {!loading && !error && filteredAssinantes.map((assinante) => (
           <Card key={assinante.id} className="hover:shadow-lg transition-shadow">
             <CardBody>
               <div className="flex items-start justify-between">
@@ -214,7 +341,6 @@ export default function AdminAssinantesPage() {
                   <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                     <Users className="w-6 h-6 text-primary" />
                   </div>
-                  
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -222,7 +348,6 @@ export default function AdminAssinantesPage() {
                       </h3>
                       {getStatusBadge(assinante.status)}
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                       <div>📧 {assinante.email}</div>
                       <div>🆔 {assinante.cpf}</div>
@@ -235,20 +360,14 @@ export default function AdminAssinantesPage() {
                         {assinante.dependentes} dependentes
                       </div>
                     </div>
-
                     <div className="flex items-center space-x-6 text-xs text-gray-500 dark:text-gray-500">
                       <div className="flex items-center">
                         <Calendar className="w-3 h-3 mr-1" />
                         Adesão: {assinante.dataAdesao}
                       </div>
-                      <div className="flex items-center">
-                        <CreditCard className="w-3 h-3 mr-1" />
-                        Último pagamento: {assinante.ultimoPagamento}
-                      </div>
                     </div>
                   </div>
                 </div>
-
                 <div className="flex flex-col items-end space-y-3 ml-4">
                   <div className="text-right">
                     <p className="text-sm text-gray-600 dark:text-gray-400">Valor mensal</p>
@@ -256,9 +375,25 @@ export default function AdminAssinantesPage() {
                       R$ {assinante.valorMensal.toFixed(2).replace('.', ',')}
                     </p>
                   </div>
-
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      setModalAssinante(assinante);
+                      setModalLoading(true);
+                      setModalFaturas(null);
+                      try {
+                        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+                        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                        if (token) headers['Authorization'] = `Bearer ${token}`;
+                        const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/faturas?cpf=${assinante.cpf}`, { headers });
+                        if (!resp.ok) throw new Error('Erro ao buscar faturas');
+                        const data = await resp.json();
+                        setModalFaturas(data.faturas || []);
+                      } catch {
+                        setModalFaturas([]);
+                      } finally {
+                        setModalLoading(false);
+                      }
+                    }}>
                       <Eye className="w-4 h-4 mr-1" />
                       Detalhes
                     </Button>
@@ -279,8 +414,28 @@ export default function AdminAssinantesPage() {
             </CardBody>
           </Card>
         ))}
+        {/* Modal de detalhes do assinante */}
+        <Dialog open={!!modalAssinante} onOpenChange={v => { if (!v) { setModalAssinante(null); setModalFaturas(null); } }}>
+          <Dialog.Content>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Detalhes do Assinante</h2>
+            </div>
+            {modalAssinante && (
+              <div className="space-y-2">
+                <div><b>Nome:</b> {modalAssinante.nome}</div>
+                <div><b>Email:</b> {modalAssinante.email}</div>
+                <div><b>CPF:</b> {modalAssinante.cpf}</div>
+                <div><b>Plano:</b> {modalAssinante.plano}</div>
+                <div><b>Status:</b> {getStatusBadge(modalAssinante.status)}</div>
+                <div><b>Data de adesão:</b> {modalAssinante.dataAdesao}</div>
+                <div><b>Valor mensal:</b> R$ {modalAssinante.valorMensal.toFixed(2).replace('.', ',')}</div>
+                <div><b>Dependentes:</b> {modalAssinante.dependentes}</div>
+              </div>
+            )}
+          </Dialog.Content>
+        </Dialog>
 
-        {filteredAssinantes.length === 0 && (
+        {!loading && !error && filteredAssinantes.length === 0 && (
           <Card>
             <CardBody>
               <div className="text-center py-12">
