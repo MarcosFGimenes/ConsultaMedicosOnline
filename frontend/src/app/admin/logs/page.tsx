@@ -20,6 +20,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
 import { getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
@@ -49,35 +50,40 @@ export default function AdminLogsPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      setLoading(true);
-      setErro('');
-      try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
-        const auth = getAuth(app);
-        const user = auth.currentUser;
-        if (!user) {
-          setErro("Usuário não autenticado.");
-          setLoading(false);
-          return;
-        }
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/admin/dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) throw new Error('Erro ao buscar logs');
-        const data = await res.json();
-        setLogsResumo(data.logs);
-      } catch (e) {
-        setErro("Erro ao carregar logs.");
-      } finally {
+  // BUG FIX: fetchLogs estava sendo declarada fora do componente, 
+  // mas usava setLoading/setErro/setLogsResumo do hook. 
+  // Agora está dentro do componente para acessar os estados corretamente.
+  const fetchLogs = async () => {
+    setLoading(true);
+    setErro('');
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+      if (!user) {
+        setErro("Usuário não autenticado.");
         setLoading(false);
+        return;
       }
-    };
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/admin/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error('Erro ao buscar logs');
+      const data = await res.json();
+      setLogsResumo(data.logs);
+    } catch (e) {
+      setErro("Erro ao carregar logs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredLogs = logsResumo?.ultimosErros?.filter(log =>
@@ -112,12 +118,29 @@ export default function AdminLogsPage() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => {
+            if (!logsResumo || !logsResumo.ultimosErros?.length) return;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text('Logs de Erro do Sistema', 10, 15);
+            doc.setFontSize(10);
+            let y = 25;
+            logsResumo.ultimosErros.forEach((log, idx) => {
+              doc.text(`#${idx + 1} - ${log.method} ${log.url}`, 10, y);
+              y += 6;
+              doc.text(`Status: ${log.status} | Latência: ${log.latencyMs?.toFixed(0)}ms | Usuário: ${log.uid || log.cpf || '-'}`, 10, y);
+              y += 6;
+              doc.text(`Data: ${(new Date(log.ts)).toLocaleString('pt-BR')}`, 10, y);
+              y += 8;
+              if (y > 270) { doc.addPage(); y = 15; }
+            });
+            doc.save('logs-erro.pdf');
+          }}>
             <Download className="w-5 h-5 mr-2" />
             Exportar
           </Button>
-          <Button variant="outline">
-            <RefreshCw className="w-5 h-5 mr-2" />
+          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+            <RefreshCw className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
         </div>
@@ -265,9 +288,6 @@ export default function AdminLogsPage() {
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 </CardBody>
               </Card>
