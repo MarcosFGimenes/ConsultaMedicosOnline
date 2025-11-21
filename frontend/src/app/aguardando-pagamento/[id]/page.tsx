@@ -172,7 +172,6 @@ export default function AguardandoPagamentoPage() {
         cpf: (dados.cpf || "").replace(/\D/g, ""),
         birthday: dados.birthday || dados.dataNascimento,
         phone: phoneNormalized,
-        serviceType: normalizeServiceType(dados.serviceType),
         zipCode: (dados.zipCode || "").replace(/\D/g, ""),
         endereco: dados.endereco,
         cidade: (dados as any)?.cidade,
