@@ -45,7 +45,7 @@ export class AgendamentoController {
   }
   static async criar(req: Request, res: Response) {
     try {
-      const { cpf, date, from, to, specialtyUuid, notes, durationMinutes } = req.body || {};
+      const { cpf, date, from, to, specialtyUuid, notes, durationMinutes, time } = req.body || {};
             
       // Validar specialtyUuid contra lista disponível (sem travar se falhar a listagem)
       let especialidades: any[] = [];
@@ -127,7 +127,7 @@ export class AgendamentoController {
       // IMPORTANTE: Não enviamos 'plan' nem 'serviceType' aqui se o usuário já estiver correto.
       // Enviar esses campos parcialmente pode fazer a API sobrescrever as regras do usuário com um objeto vazio.
       const bodyRapidoc: Record<string, any> = {
-        beneficiary: { uuid: beneficiarioUuid, cpf },
+        beneficiary: { uuid: beneficiario.uuid, cpf },
         specialty: { uuid: specialtyUuid },
         detail: { date: dateFormatted, from: finalFrom, to: finalTo }
       };
