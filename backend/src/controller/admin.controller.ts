@@ -256,4 +256,107 @@ export class AdminController {
       return res.status(500).json({ error: error?.message || 'Erro ao montar dashboard administrativo.' });
     }
   }
+
+  // Buscar beneficiários do Rapidoc sem conta de usuário e sem cobrança no Asaas
+  static async beneficiariosSemConta(req: Request, res: Response) {
+    try {
+      const db = getFirestore(firebaseApp);
+      const auth = getAuth(firebaseApp);
+      const { listarBeneficiariosRapidoc } = await import('../services/rapidoc.service.js');
+      const { verificarAssinaturaPorCpf } = await import('../services/asaas.service.js');
+
+      // 1. Buscar todos os beneficiários do Rapidoc
+      console.log('[AdminController] Buscando beneficiários do Rapidoc...');
+      const beneficiariosRapidoc = await listarBeneficiariosRapidoc();
+      console.log(`[AdminController] Encontrados ${beneficiariosRapidoc.length} beneficiários no Rapidoc`);
+      
+      // Normalizar estrutura (pode vir como array de objetos ou objetos com beneficiary)
+      const beneficiariosNormalizados = beneficiariosRapidoc
+        .map((b: any) => {
+          // Tenta diferentes estruturas possíveis
+          const beneficiario = b.beneficiary || b.data || b;
+          if (!beneficiario) return null;
+          
+          return {
+            uuid: beneficiario.uuid || beneficiario.id,
+            nome: beneficiario.name || beneficiario.nome || 'Nome não informado',
+            cpf: beneficiario.cpf || beneficiario.document || null,
+            email: beneficiario.email || null,
+            isActive: beneficiario.isActive !== false && beneficiario.active !== false && beneficiario.status !== 'INACTIVE',
+          };
+        })
+        .filter((b: any) => b && b.cpf && b.isActive); // Apenas ativos com CPF válido
+
+      // 2. Buscar todos os usuários do Firestore
+      const usuariosSnap = await db.collection('usuarios').get();
+      const usuariosPorCpf = new Map<string, any>();
+      usuariosSnap.forEach((doc: any) => {
+        const data = doc.data();
+        if (data.cpf) {
+          usuariosPorCpf.set(data.cpf, data);
+        }
+      });
+
+      // 3. Verificar quais beneficiários não têm conta de usuário
+      const beneficiariosSemConta: Array<{
+        uuid: string;
+        nome: string;
+        cpf: string;
+        email: string;
+        temUsuarioFirestore: boolean;
+        temUsuarioAuth: boolean;
+        temAssinaturaAsaas: boolean;
+      }> = [];
+
+      for (const beneficiario of beneficiariosNormalizados) {
+        const usuarioFirestore = usuariosPorCpf.get(beneficiario.cpf);
+        const temUsuarioFirestore = !!usuarioFirestore;
+
+        // Verificar se tem usuário no Firebase Auth
+        let temUsuarioAuth = false;
+        try {
+          if (beneficiario.email) {
+            await auth.getUserByEmail(beneficiario.email);
+            temUsuarioAuth = true;
+          }
+        } catch (error: any) {
+          // Usuário não existe no Auth (erro auth/user-not-found é esperado)
+          if (error?.code !== 'auth/user-not-found') {
+            console.error(`Erro ao verificar usuário Auth para ${beneficiario.email}:`, error);
+          }
+          temUsuarioAuth = false;
+        }
+
+        // Verificar se tem assinatura ativa no Asaas
+        let temAssinaturaAsaas = false;
+        try {
+          const asaasCheck = await verificarAssinaturaPorCpf(beneficiario.cpf);
+          temAssinaturaAsaas = asaasCheck.assinaturaOk;
+        } catch {
+          // Erro ao verificar, considera como não tendo
+          temAssinaturaAsaas = false;
+        }
+
+        // Incluir apenas os que não têm conta completa (sem usuário no Firestore OU sem usuário no Auth) E não têm assinatura no Asaas
+        if ((!temUsuarioFirestore || !temUsuarioAuth) && !temAssinaturaAsaas) {
+          beneficiariosSemConta.push({
+            uuid: beneficiario.uuid,
+            nome: beneficiario.nome || 'Nome não informado',
+            cpf: beneficiario.cpf,
+            email: beneficiario.email || 'Email não informado',
+            temUsuarioFirestore,
+            temUsuarioAuth,
+            temAssinaturaAsaas,
+          });
+        }
+      }
+
+      return res.status(200).json({
+        total: beneficiariosSemConta.length,
+        beneficiarios: beneficiariosSemConta,
+      });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Erro ao buscar beneficiários sem conta.' });
+    }
+  }
 }

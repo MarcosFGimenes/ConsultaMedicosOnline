@@ -13,4 +13,7 @@ router.post('/admin/cadastrar-plano', autenticarAdministrador, AdminController.c
 // GET /api/admin/dashboard - métricas administrativas
 router.get('/admin/dashboard', autenticarAdministrador, AdminController.dashboard);
 
+// GET /api/admin/beneficiarios-sem-conta - Buscar beneficiários sem conta de usuário
+router.get('/admin/beneficiarios-sem-conta', autenticarAdministrador, AdminController.beneficiariosSemConta);
+
 export default router;
