@@ -66,7 +66,13 @@ export default function Page() {
           headers: { Authorization: `Bearer ${token}` },
         });
       })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          console.error('Erro ao buscar especialidades:', res.status, res.statusText);
+          throw new Error(`Erro ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      })
       .then((data) => {
         // API retorna { specialties: [{ uuid, name, source }] }
         if (data && Array.isArray(data.specialties)) {
@@ -79,7 +85,10 @@ export default function Page() {
         }
         setLoadingSpecialties(false);
       })
-      .catch(() => setLoadingSpecialties(false));
+      .catch((err) => {
+        console.error('Erro ao carregar especialidades:', err);
+        setLoadingSpecialties(false);
+      });
   }, []);
 
   // Buscar pacientes (usuário + dependentes) do dashboard
