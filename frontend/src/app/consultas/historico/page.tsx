@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,12 +15,14 @@ import {
   Search,
   Filter,
   User,
+  Loader2,
 } from 'lucide-react';
 
 type AppointmentStatus = 'completed' | 'cancelled' | 'missed';
 
 interface Appointment {
-  id: number;
+  id: string;
+  uuid: string;
   specialty: string;
   doctor: string;
   date: string;
@@ -28,50 +30,32 @@ interface Appointment {
   patient: string;
   status: AppointmentStatus;
   hasReport: boolean;
+  from?: string;
+  to?: string;
 }
 
-const MOCK_APPOINTMENTS: Appointment[] = [
-  {
-    id: 1,
-    specialty: 'Cardiologia',
-    doctor: 'Dr. João Silva',
-    date: '2025-11-05',
-    time: '14:00',
-    patient: 'Você',
-    status: 'completed',
-    hasReport: true,
-  },
-  {
-    id: 2,
-    specialty: 'Pediatria',
-    doctor: 'Dra. Maria Santos',
-    date: '2025-10-20',
-    time: '10:00',
-    patient: 'Maria Silva',
-    status: 'completed',
-    hasReport: true,
-  },
-  {
-    id: 3,
-    specialty: 'Dermatologia',
-    doctor: 'Dr. Carlos Oliveira',
-    date: '2025-09-15',
-    time: '16:00',
-    patient: 'Você',
-    status: 'completed',
-    hasReport: false,
-  },
-  {
-    id: 4,
-    specialty: 'Clínico Geral',
-    doctor: 'Dra. Ana Costa',
-    date: '2025-08-10',
-    time: '09:00',
-    patient: 'João Silva',
-    status: 'cancelled',
-    hasReport: false,
-  },
-];
+interface AppointmentApi {
+  uuid: string;
+  status: string;
+  date?: string;
+  from?: string;
+  to?: string;
+  specialty?: {
+    name?: string;
+    uuid?: string;
+  };
+  professional?: {
+    name?: string;
+  };
+  beneficiary?: {
+    name?: string;
+  };
+  detail?: {
+    date?: string;
+    from?: string;
+    to?: string;
+  };
+}
 
 const STATUS_MAP: Record<
   AppointmentStatus,
@@ -83,24 +67,207 @@ const STATUS_MAP: Record<
 };
 
 export default function HistoricoConsultasPage() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterSpecialty, setFilterSpecialty] = useState('all');
 
-  const filteredAppointments = MOCK_APPOINTMENTS.filter((apt) => {
-    const matchesSearch =
-      apt.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.doctor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.patient.toLowerCase().includes(searchTerm.toLowerCase());
+  // Buscar agendamentos do backend
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        
+        if (!token) {
+          setLoading(false);
+          return;
+        }
 
-    const matchesStatus =
-      filterStatus === 'all' || apt.status === filterStatus;
+        // Buscar dados do dashboard para obter CPF
+        const dashboardRes = await fetch(`${apiBase}/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    const matchesSpecialty =
-      filterSpecialty === 'all' || apt.specialty === filterSpecialty;
+        if (!dashboardRes.ok) {
+          throw new Error('Erro ao buscar dados do dashboard');
+        }
 
-    return matchesSearch && matchesStatus && matchesSpecialty;
-  });
+        const dashboardData = await dashboardRes.json();
+        const cpf = dashboardData?.usuario?.cpf;
+
+        if (!cpf) {
+          throw new Error('CPF não encontrado');
+        }
+
+        // Buscar beneficiário pelo CPF para obter UUID
+        const beneficiaryRes = await fetch(`${apiBase}/rapidoc/beneficiario/${cpf}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!beneficiaryRes.ok) {
+          throw new Error('Erro ao buscar beneficiário');
+        }
+
+        const beneficiaryData = await beneficiaryRes.json();
+        const uuid = beneficiaryData?.uuid;
+
+        if (!uuid) {
+          throw new Error('UUID do beneficiário não encontrado');
+        }
+
+        // Buscar todos os agendamentos do beneficiário
+        const appointmentsRes = await fetch(`${apiBase}/beneficiarios/${uuid}/appointments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (appointmentsRes.ok) {
+          const appointmentsData = await appointmentsRes.json();
+          const apiAppointments: AppointmentApi[] = appointmentsData?.appointments || [];
+          
+          // Filtrar apenas agendamentos já realizados/completados/cancelados
+          const historicalAppointments = apiAppointments.filter((apt: AppointmentApi) => {
+            const status = apt?.status?.toUpperCase();
+            return status === 'COMPLETED' || status === 'CANCELED' || status === 'CANCELLED' || status === 'MISSED';
+          });
+
+          // Mapear para o formato da interface
+          const mappedAppointments: Appointment[] = historicalAppointments.map((apt: AppointmentApi) => {
+            const date = apt.detail?.date || apt.date || '';
+            const from = apt.detail?.from || apt.from || '';
+            const to = apt.detail?.to || apt.to || '';
+            const doctorName = apt.professional?.name || 'Médico não informado';
+            const specialtyName = apt.specialty?.name || 'Especialidade não informada';
+            const patientName = apt.beneficiary?.name || 'Você';
+            
+            // Converter status da API para o formato da interface
+            let status: AppointmentStatus = 'completed';
+            const apiStatus = apt.status?.toUpperCase();
+            if (apiStatus === 'CANCELED' || apiStatus === 'CANCELLED') {
+              status = 'cancelled';
+            } else if (apiStatus === 'MISSED') {
+              status = 'missed';
+            } else if (apiStatus === 'COMPLETED') {
+              status = 'completed';
+            }
+
+            // Formatar hora
+            const time = from || '00:00';
+
+            return {
+              id: apt.uuid,
+              uuid: apt.uuid,
+              specialty: specialtyName,
+              doctor: doctorName,
+              date: date,
+              time: time,
+              patient: patientName,
+              status: status,
+              hasReport: false, // Por enquanto, não temos informação de laudo na API
+              from: from,
+              to: to,
+            };
+          });
+
+          // Ordenar por data (mais recentes primeiro)
+          mappedAppointments.sort((a, b) => {
+            if (!a.date || !b.date) return 0;
+            // Converter dd/MM/yyyy para Date
+            const [da, ma, aa] = a.date.split('/');
+            const [db, mb, ab] = b.date.split('/');
+            const dateA = new Date(`${aa}-${ma}-${da}`);
+            const dateB = new Date(`${ab}-${mb}-${db}`);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+          setAllAppointments(mappedAppointments);
+          setAppointments(mappedAppointments);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar histórico de consultas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointments();
+  }, []);
+
+  // Filtrar agendamentos
+  useEffect(() => {
+    const filtered = allAppointments.filter((apt) => {
+      const matchesSearch =
+        apt.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.doctor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.patient.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        filterStatus === 'all' || apt.status === filterStatus;
+
+      const matchesSpecialty =
+        filterSpecialty === 'all' || apt.specialty === filterSpecialty;
+
+      return matchesSearch && matchesStatus && matchesSpecialty;
+    });
+
+    setAppointments(filtered);
+  }, [searchTerm, filterStatus, filterSpecialty, allAppointments]);
+
+  // Obter lista única de especialidades para o filtro
+  const specialties = Array.from(
+    new Set(allAppointments.map((apt) => apt.specialty))
+  ).sort();
+
+  const handleViewDetails = async (uuid: string) => {
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+      if (!token) {
+        alert('Token não encontrado. Por favor, faça login novamente.');
+        return;
+      }
+
+      // Buscar detalhes do agendamento
+      const res = await fetch(`${apiBase}/agendamentos/${uuid}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const appointment = data?.appointment || data;
+        
+        // Mostrar detalhes em um alert (ou você pode criar um modal)
+        const details = `
+Especialidade: ${appointment.specialty?.name || 'N/A'}
+Médico: ${appointment.professional?.name || 'N/A'}
+Data: ${appointment.detail?.date || appointment.date || 'N/A'}
+Horário: ${appointment.detail?.from || appointment.from || 'N/A'} - ${appointment.detail?.to || appointment.to || 'N/A'}
+Status: ${appointment.status || 'N/A'}
+        `.trim();
+        
+        alert(details);
+      } else {
+        alert('Erro ao buscar detalhes da consulta');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar detalhes:', error);
+      alert('Erro ao buscar detalhes da consulta');
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Histórico de Consultas">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Carregando histórico...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Histórico de Consultas">
@@ -132,14 +299,47 @@ export default function HistoricoConsultasPage() {
               </select>
             </div>
           </div>
+
+          {/* Filter by Specialty */}
+          {specialties.length > 0 && (
+            <div className="mt-4">
+              <select
+                value={filterSpecialty}
+                onChange={(e) => setFilterSpecialty(e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="all">Todas as especialidades</option>
+                {specialties.map((specialty) => (
+                  <option key={specialty} value={specialty}>
+                    {specialty}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </CardBody>
       </Card>
 
       {/* Appointments List */}
       <div className="space-y-4">
-        {filteredAppointments.length > 0 ? (
-          filteredAppointments.map((appointment) => {
+        {appointments.length > 0 ? (
+          appointments.map((appointment) => {
             const statusInfo = STATUS_MAP[appointment.status];
+
+            // Converter data para formato brasileiro se necessário
+            let formattedDate = appointment.date;
+            if (appointment.date && appointment.date.includes('/')) {
+              // Já está em formato dd/MM/yyyy
+              formattedDate = appointment.date;
+            } else if (appointment.date) {
+              // Tentar converter de yyyy-MM-dd para dd/MM/yyyy
+              try {
+                const [year, month, day] = appointment.date.split('-');
+                formattedDate = `${day}/${month}/${year}`;
+              } catch {
+                formattedDate = appointment.date;
+              }
+            }
 
             return (
               <Card key={appointment.id}>
@@ -169,13 +369,20 @@ export default function HistoricoConsultasPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-2" />
-                            {new Date(
-                              appointment.date + 'T00:00:00'
-                            ).toLocaleDateString('pt-BR')}
+                            {formattedDate ? (
+                              formattedDate.includes('/') ? (
+                                formattedDate
+                              ) : (
+                                new Date(formattedDate + 'T00:00:00').toLocaleDateString('pt-BR')
+                              )
+                            ) : (
+                              'Data não informada'
+                            )}
                           </div>
                           <div className="flex items-center">
                             <Clock className="w-4 h-4 mr-2" />
                             {appointment.time}
+                            {appointment.to && ` - ${appointment.to}`}
                           </div>
                           <div className="flex items-center">
                             <User className="w-4 h-4 mr-2" />
@@ -187,7 +394,11 @@ export default function HistoricoConsultasPage() {
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewDetails(appointment.uuid)}
+                      >
                         <FileText className="w-4 h-4 mr-2" />
                         Ver Detalhes
                       </Button>
@@ -210,10 +421,14 @@ export default function HistoricoConsultasPage() {
               <div className="text-center py-12">
                 <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Nenhuma consulta encontrada
+                  {allAppointments.length === 0 
+                    ? 'Nenhuma consulta no histórico'
+                    : 'Nenhuma consulta encontrada'}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Tente ajustar os filtros ou termos de busca
+                  {allAppointments.length === 0
+                    ? 'Você ainda não possui consultas realizadas no histórico'
+                    : 'Tente ajustar os filtros ou termos de busca'}
                 </p>
               </div>
             </CardBody>
@@ -222,16 +437,13 @@ export default function HistoricoConsultasPage() {
       </div>
 
       {/* Summary Stats */}
-      {filteredAppointments.length > 0 && (
+      {allAppointments.length > 0 && (
         <Card className="mt-6">
           <CardBody>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <p className="text-3xl font-bold text-primary">
-                  {
-                    MOCK_APPOINTMENTS.filter((a) => a.status === 'completed')
-                      .length
-                  }
+                  {allAppointments.filter((a) => a.status === 'completed').length}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Realizadas
@@ -239,10 +451,7 @@ export default function HistoricoConsultasPage() {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-danger">
-                  {
-                    MOCK_APPOINTMENTS.filter((a) => a.status === 'cancelled')
-                      .length
-                  }
+                  {allAppointments.filter((a) => a.status === 'cancelled').length}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Canceladas
@@ -250,7 +459,7 @@ export default function HistoricoConsultasPage() {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-warning">
-                  {MOCK_APPOINTMENTS.filter((a) => a.status === 'missed').length}
+                  {allAppointments.filter((a) => a.status === 'missed').length}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Perdidas
@@ -258,7 +467,7 @@ export default function HistoricoConsultasPage() {
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {MOCK_APPOINTMENTS.length}
+                  {allAppointments.length}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Total

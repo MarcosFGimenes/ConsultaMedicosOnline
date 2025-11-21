@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,10 @@ import {
   Users,
   Calendar,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
+import api from '@/lib/api';
+import { auth } from '@/lib/firebase';
 
 type CancellationStep = 'initial' | 'reasons' | 'retention' | 'confirmation';
 
@@ -50,11 +53,135 @@ const RETENTION_OFFERS = [
   },
 ];
 
+interface PlanoInfo {
+  nome: string;
+  valor: number;
+  dependentes: number;
+}
+
 export default function CancelarPlanoPage() {
   const [step, setStep] = useState<CancellationStep>('initial');
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [additionalComments, setAdditionalComments] = useState('');
   const [selectedOffer, setSelectedOffer] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [dataCancelamento, setDataCancelamento] = useState<string>('');
+  const [planoInfo, setPlanoInfo] = useState<PlanoInfo | null>(null);
+  const [loadingPlano, setLoadingPlano] = useState(true);
+
+  useEffect(() => {
+    // Obter token do Firebase para usar nas requisições
+    const setupAuth = async () => {
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('token', token);
+      }
+    };
+    setupAuth();
+  }, []);
+
+  useEffect(() => {
+    // Buscar dados do plano do usuário
+    const buscarDadosPlano = async () => {
+      try {
+        setLoadingPlano(true);
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('auth_token') : null;
+        
+        if (!token) {
+          setLoadingPlano(false);
+          return;
+        }
+
+        // Buscar dados do dashboard que contém informações da assinatura
+        const response = await fetch(`${apiBase}/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          setLoadingPlano(false);
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Buscar assinatura ativa
+        const assinaturas = data.assinaturas || [];
+        const assinaturaAtiva = assinaturas.find((a: any) => a.status === 'ATIVA') || assinaturas[0];
+        
+        if (!assinaturaAtiva) {
+          setLoadingPlano(false);
+          return;
+        }
+
+        // Buscar dados do plano
+        let nomePlano = 'Plano não identificado';
+        let valorPlano = 0;
+        
+        // Primeiro, tentar usar dados do snapshot (mais rápido e confiável)
+        if (assinaturaAtiva.planoSnapshot) {
+          nomePlano = assinaturaAtiva.planoSnapshot.tipo || assinaturaAtiva.planoSnapshot.nome || nomePlano;
+          valorPlano = assinaturaAtiva.planoSnapshot.preco || assinaturaAtiva.planoSnapshot.valor || assinaturaAtiva.planoSnapshot.precoMensal || 0;
+        }
+        
+        // Se não tiver snapshot ou dados incompletos, buscar do Firestore
+        if ((!nomePlano || nomePlano === 'Plano não identificado' || valorPlano === 0) && assinaturaAtiva.planoId) {
+          try {
+            const planoResponse = await fetch(`${apiBase}/planos/${assinaturaAtiva.planoId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (planoResponse.ok) {
+              const planoData = await planoResponse.json();
+              if (!nomePlano || nomePlano === 'Plano não identificado') {
+                nomePlano = planoData.tipo || planoData.nome || nomePlano;
+              }
+              if (valorPlano === 0) {
+                valorPlano = planoData.preco || planoData.valor || planoData.precoMensal || 0;
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao buscar dados do plano:', err);
+          }
+        }
+        
+        // Se ainda não tiver valor, tentar buscar do Asaas via assinatura
+        if (valorPlano === 0 && assinaturaAtiva.idAssinatura) {
+          try {
+            const asaasResponse = await fetch(`${apiBase}/subscription/payment-details/${assinaturaAtiva.idAssinatura}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (asaasResponse.ok) {
+              const asaasData = await asaasResponse.json();
+              if (asaasData.pagamento?.value) {
+                valorPlano = asaasData.pagamento.value;
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao buscar valor do Asaas:', err);
+          }
+        }
+
+        // Contar dependentes
+        const dependentes = data.beneficiarios?.length || data.numeroDependentes || 0;
+
+        setPlanoInfo({
+          nome: nomePlano,
+          valor: valorPlano,
+          dependentes: dependentes,
+        });
+      } catch (error) {
+        console.error('Erro ao buscar dados do plano:', error);
+      } finally {
+        setLoadingPlano(false);
+      }
+    };
+
+    buscarDadosPlano();
+  }, []);
 
   const handleReasonToggle = (reason: string) => {
     if (selectedReasons.includes(reason)) {
@@ -64,13 +191,40 @@ export default function CancelarPlanoPage() {
     }
   };
 
-  const handleConfirmCancellation = () => {
-    console.log('Cancelando plano:', {
-      reasons: selectedReasons,
-      comments: additionalComments,
-    });
-    // Aqui faria a chamada à API
-    setStep('confirmation');
+  const handleConfirmCancellation = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Obter token atualizado
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        localStorage.setItem('auth_token', token);
+      }
+
+      const response = await api.post('/subscription/cancelar-plano', {
+        reasons: selectedReasons,
+        comments: additionalComments,
+      });
+
+      if (response.data.success) {
+        setDataCancelamento(response.data.dataCancelamento);
+        setStep('confirmation');
+      } else {
+        setError(response.data.error || 'Erro ao cancelar plano.');
+      }
+    } catch (err: any) {
+      console.error('Erro ao cancelar plano:', err);
+      const errorMessage = err.response?.data?.error || err.message || 'Erro ao cancelar plano. Tente novamente.';
+      setError(errorMessage);
+      
+      // Se o erro for sobre não ter pago os 3 meses, mostrar mensagem específica
+      if (err.response?.status === 403) {
+        setError(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAcceptOffer = () => {
@@ -120,32 +274,43 @@ export default function CancelarPlanoPage() {
             <Card>
               <CardHeader>Seu Plano Atual</CardHeader>
               <CardBody>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Plano
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Premium Familiar
-                    </p>
+                {loadingPlano ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">Carregando informações do plano...</p>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Valor Mensal
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      R$ 149,90
-                    </p>
+                ) : planoInfo ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Plano
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {planoInfo.nome}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Valor Mensal
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        R$ {planoInfo.valor.toFixed(2).replace('.', ',')}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Dependentes
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {planoInfo.dependentes} {planoInfo.dependentes === 1 ? 'ativo' : 'ativos'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Dependentes
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      3 ativos
-                    </p>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 dark:text-gray-400">Não foi possível carregar as informações do plano.</p>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                   <Button variant="outline" onClick={() => window.history.back()}>
@@ -201,6 +366,12 @@ export default function CancelarPlanoPage() {
                   placeholder="Conte-nos mais sobre sua decisão..."
                 />
               </div>
+
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                  <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                </div>
+              )}
 
               <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                 <Button variant="outline" onClick={() => setStep('initial')}>
@@ -283,8 +454,19 @@ export default function CancelarPlanoPage() {
                       <CheckCircle className="w-5 h-5 mr-2" />
                       Aceitar Oferta
                     </Button>
-                    <Button variant="danger" onClick={handleConfirmCancellation}>
-                      Cancelar Mesmo Assim
+                    <Button 
+                      variant="danger" 
+                      onClick={handleConfirmCancellation}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        'Cancelar Mesmo Assim'
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -307,10 +489,12 @@ export default function CancelarPlanoPage() {
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   Seu plano foi cancelado com sucesso.
                 </p>
-                <p className="text-sm text-gray-500 mb-8">
-                  Você terá acesso aos serviços até o fim do período pago em{' '}
-                  <strong>15/12/2025</strong>
-                </p>
+                {dataCancelamento && (
+                  <p className="text-sm text-gray-500 mb-8">
+                    Seu plano foi cancelado em{' '}
+                    <strong>{new Date(dataCancelamento).toLocaleDateString('pt-BR')}</strong>
+                  </p>
+                )}
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl mb-8">
                   <p className="text-sm text-blue-800 dark:text-blue-300">

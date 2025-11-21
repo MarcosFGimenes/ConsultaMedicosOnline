@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { SubscriptionController } from '../controller/subscription.controller.js';
+import { autenticarFirebase } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -17,6 +18,12 @@ router.get('/subscription/payment-details/:assinaturaId', SubscriptionController
 
 // DELETE /api/subscription/cancel/:assinaturaId
 router.delete('/subscription/cancel/:assinaturaId', SubscriptionController.cancelSubscription);
+
+// POST /api/subscription/cancelar-plano (protegido - requer autenticação)
+router.post('/subscription/cancelar-plano', autenticarFirebase, SubscriptionController.cancelarPlanoUsuario);
+
+// GET /api/subscription/status-plano (protegido - requer autenticação)
+router.get('/subscription/status-plano', autenticarFirebase, SubscriptionController.verificarStatusPlano);
 
 // GET /api/subscription/onboarding-status/:cpf
 router.get('/subscription/onboarding-status/:cpf', SubscriptionController.onboardingStatus);
