@@ -12,6 +12,9 @@ router.put('/beneficiarios/:cpf/especialidades', autenticarFirebase, Beneficiari
 // GET /api/beneficiarios/:cpf/encaminhamentos - lista encaminhamentos médicos do beneficiário
 router.get('/beneficiarios/:cpf/encaminhamentos', autenticarFirebase, BeneficiarioController.listarEncaminhamentos);
 
+// GET /api/beneficiarios/:uuid/appointments - lista agendamentos do beneficiário por UUID
+router.get('/beneficiarios/:uuid/appointments', autenticarFirebase, BeneficiarioController.listarAgendamentos);
+
 // Inativar beneficiário no Rapidoc por CPF
 router.post('/beneficiarios/:cpf/inativar-rapidoc', autenticarFirebase, BeneficiarioController.inativarRapidoc);
 

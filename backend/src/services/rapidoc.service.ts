@@ -339,6 +339,24 @@ export async function buscarEncaminhamentosBeneficiarioRapidoc(beneficiaryUuid: 
   return resp.data;
 }
 
+// Listar agendamentos do beneficiário por UUID (endpoint específico)
+export async function listarAgendamentosBeneficiarioRapidoc(beneficiaryUuid: string) {
+  if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) throw new Error('Configuração Rapidoc ausente');
+  const url = `${RAPIDOC_BASE_URL}/tema/api/beneficiaries/${beneficiaryUuid}/appointments`;
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${RAPIDOC_TOKEN}`,
+      clientId: RAPIDOC_CLIENT_ID,
+      'Content-Type': 'application/vnd.rapidoc.tema-v2+json'
+    }
+  });
+  // A resposta pode vir como array ou objeto com array
+  if (Array.isArray(resp.data)) return resp.data;
+  if (Array.isArray(resp.data?.appointments)) return resp.data.appointments;
+  if (Array.isArray(resp.data?.data)) return resp.data.data;
+  return [];
+}
+
 // Listar todos os beneficiários do Rapidoc
 export async function listarBeneficiariosRapidoc(): Promise<any[]> {
   if (!RAPIDOC_BASE_URL || !RAPIDOC_TOKEN || !RAPIDOC_CLIENT_ID) {

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import admin from 'firebase-admin';
-import { buscarBeneficiarioRapidocPorCpf, inativarBeneficiarioRapidoc, buscarEncaminhamentosBeneficiarioRapidoc } from '../services/rapidoc.service.js';
+import { buscarBeneficiarioRapidocPorCpf, inativarBeneficiarioRapidoc, buscarEncaminhamentosBeneficiarioRapidoc, listarAgendamentosBeneficiarioRapidoc } from '../services/rapidoc.service.js';
 
 export class BeneficiarioController {
   // Inativar beneficiário no Rapidoc via CPF
@@ -108,6 +108,36 @@ export class BeneficiarioController {
       }
     } catch (error: any) {
       return res.status(500).json({ error: error?.message || 'Erro ao buscar encaminhamentos.' });
+    }
+  }
+
+  // Listar agendamentos do beneficiário por UUID
+  static async listarAgendamentos(req: Request, res: Response) {
+    try {
+      const { uuid } = req.params as { uuid?: string };
+      if (!uuid) return res.status(400).json({ error: 'UUID do beneficiário é obrigatório.' });
+
+      try {
+        console.log('[BeneficiarioController] Buscando agendamentos para beneficiário:', uuid);
+        const agendamentos = await listarAgendamentosBeneficiarioRapidoc(uuid);
+        console.log('[BeneficiarioController] Resposta do Rapidoc:', JSON.stringify(agendamentos, null, 2));
+        
+        return res.status(200).json({ count: agendamentos.length, appointments: agendamentos });
+      } catch (e: any) {
+        console.error('[BeneficiarioController] Erro ao buscar agendamentos:', {
+          status: e?.response?.status,
+          statusText: e?.response?.statusText,
+          data: e?.response?.data,
+          message: e?.message
+        });
+        
+        return res.status(400).json({ 
+          error: 'Erro ao buscar agendamentos no Rapidoc.', 
+          detail: e?.response?.data || e?.message 
+        });
+      }
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Erro ao buscar agendamentos.' });
     }
   }
 }
