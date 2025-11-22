@@ -718,4 +718,532 @@ export class SubscriptionController {
             return res.status(500).json({ error: error?.response?.data || error.message || 'Erro ao completar onboarding.' });
         }
     }
+
+    /**
+     * Atualiza a forma de pagamento de uma assinatura existente
+     * Permite alterar entre BOLETO, PIX e CREDIT_CARD
+     * Regras de negócio:
+     * 1. Verifica se há cobranças pendentes/atrasadas antes de permitir alteração
+     * 2. Atualiza a assinatura com o novo billingType
+     * 3. Se for CREDIT_CARD, atualiza também os dados do cartão
+     */
+    static async updatePaymentMethod(req: Request, res: Response) {
+        try {
+            const { assinaturaId } = req.params;
+            const { 
+                billingType, 
+                nextDueDate, 
+                creditCard, 
+                creditCardHolderInfo, 
+                creditCardToken 
+            } = req.body;
+
+            // Log para debug
+            console.log('[updatePaymentMethod] Recebido:', {
+                assinaturaId,
+                billingType,
+                temCreditCard: !!creditCard,
+                temCreditCardToken: !!creditCardToken,
+                temCreditCardHolderInfo: !!creditCardHolderInfo,
+                creditCardHolderInfoKeys: creditCardHolderInfo ? Object.keys(creditCardHolderInfo) : []
+            });
+
+            // Validações básicas
+            if (!assinaturaId) {
+                return res.status(400).json({ error: 'assinaturaId é obrigatório.' });
+            }
+
+            if (!billingType) {
+                return res.status(400).json({ error: 'billingType é obrigatório. Use: BOLETO, PIX ou CREDIT_CARD.' });
+            }
+
+            const tiposPermitidos: Array<'BOLETO' | 'PIX' | 'CREDIT_CARD'> = ['BOLETO', 'PIX', 'CREDIT_CARD'];
+            if (!tiposPermitidos.includes(billingType)) {
+                return res.status(400).json({ 
+                    error: `billingType inválido. Use um dos seguintes: ${tiposPermitidos.join(', ')}.` 
+                });
+            }
+
+            // Importar serviços
+            const { 
+                listarCobrancasAssinaturaAsaas, 
+                atualizarAssinaturaAsaas, 
+                atualizarCartaoAssinaturaAsaas 
+            } = await import('../services/asaas.service.js');
+
+            // 1. Verificar se há cobranças pendentes/atrasadas
+            try {
+                const cobrancas = await listarCobrancasAssinaturaAsaas(assinaturaId);
+                const STATUS_PENDENTES = new Set(['PENDING', 'OVERDUE']);
+                const cobrancasPendentes = cobrancas.filter((c: any) => 
+                    STATUS_PENDENTES.has(String(c?.status || '').toUpperCase())
+                );
+
+                if (cobrancasPendentes.length > 0) {
+                    return res.status(409).json({
+                        error: 'Não é possível alterar a forma de pagamento: existem cobranças pendentes ou atrasadas.',
+                        cobrancasPendentes: cobrancasPendentes.map((c: any) => ({
+                            id: c.id,
+                            status: c.status,
+                            value: c.value,
+                            dueDate: c.dueDate
+                        }))
+                    });
+                }
+            } catch (errorVerificacao: any) {
+                // Se não conseguir listar cobranças, loga mas continua (pode ser assinatura sem cobranças ainda)
+                console.warn('[updatePaymentMethod] Erro ao verificar cobranças:', errorVerificacao?.message);
+            }
+
+            // 2. Obter IP do cliente (para segurança ao atualizar cartão)
+            const remoteIp = req.ip || 
+                           (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
+                           req.socket.remoteAddress || 
+                           undefined;
+
+            // 3. Atualizar assinatura com novo billingType
+            try {
+                const updateParams: {
+                    subscriptionId: string;
+                    billingType: 'BOLETO' | 'PIX' | 'CREDIT_CARD';
+                    updatePendingPayments: boolean;
+                    nextDueDate?: string;
+                } = {
+                    subscriptionId: assinaturaId,
+                    billingType: billingType as 'BOLETO' | 'PIX' | 'CREDIT_CARD',
+                    updatePendingPayments: true
+                };
+                
+                if (nextDueDate) {
+                    updateParams.nextDueDate = String(nextDueDate).substring(0, 10);
+                }
+                
+                await atualizarAssinaturaAsaas(updateParams);
+            } catch (errorAtualizacao: any) {
+                console.error('[updatePaymentMethod] Erro ao atualizar assinatura:', {
+                    message: errorAtualizacao?.message,
+                    responseData: errorAtualizacao?.response?.data,
+                    status: errorAtualizacao?.response?.status
+                });
+
+                const statusCode = errorAtualizacao?.response?.status || 500;
+                const errorMessage = errorAtualizacao?.response?.data?.errors || 
+                                   errorAtualizacao?.response?.data?.message || 
+                                   errorAtualizacao?.message || 
+                                   'Erro ao atualizar assinatura no Asaas.';
+
+                return res.status(statusCode).json({ 
+                    error: errorMessage,
+                    details: errorAtualizacao?.response?.data 
+                });
+            }
+
+            // 4. Se for CREDIT_CARD, atualizar dados do cartão
+            if (billingType === 'CREDIT_CARD') {
+                // Validação: precisa ter creditCardToken ou dados completos do cartão
+                if (!creditCardToken && (!creditCard || !creditCard.holderName || !creditCard.number || !creditCard.expiryMonth || !creditCard.expiryYear || !creditCard.ccv)) {
+                    return res.status(400).json({ 
+                        error: 'Para CREDIT_CARD, é necessário fornecer creditCardToken ou dados completos do cartão (holderName, number, expiryMonth, expiryYear, ccv).' 
+                    });
+                }
+
+                // Validação: precisa ter creditCardHolderInfo
+                if (!creditCardHolderInfo) {
+                    console.error('[updatePaymentMethod] creditCardHolderInfo não fornecido');
+                    return res.status(400).json({ 
+                        error: 'Para CREDIT_CARD, é necessário fornecer creditCardHolderInfo completo (name, email, cpfCnpj, postalCode, addressNumber).' 
+                    });
+                }
+                
+                // Validar campos obrigatórios individualmente para mensagem mais clara
+                const camposFaltantes: string[] = [];
+                if (!creditCardHolderInfo.name || !String(creditCardHolderInfo.name).trim()) camposFaltantes.push('name');
+                if (!creditCardHolderInfo.email || !String(creditCardHolderInfo.email).trim()) camposFaltantes.push('email');
+                if (!creditCardHolderInfo.cpfCnpj || !String(creditCardHolderInfo.cpfCnpj).trim()) camposFaltantes.push('cpfCnpj');
+                if (!creditCardHolderInfo.postalCode || !String(creditCardHolderInfo.postalCode).trim()) camposFaltantes.push('postalCode');
+                if (!creditCardHolderInfo.addressNumber || !String(creditCardHolderInfo.addressNumber).trim()) camposFaltantes.push('addressNumber');
+                
+                if (camposFaltantes.length > 0) {
+                    console.error('[updatePaymentMethod] Campos faltantes no creditCardHolderInfo:', camposFaltantes);
+                    return res.status(400).json({ 
+                        error: `Para CREDIT_CARD, é necessário fornecer creditCardHolderInfo completo. Campos faltantes: ${camposFaltantes.join(', ')}.` 
+                    });
+                }
+
+                try {
+                    const cartaoParams: {
+                        subscriptionId: string;
+                        creditCardToken?: string;
+                        creditCard?: {
+                            holderName: string;
+                            number: string;
+                            expiryMonth: string;
+                            expiryYear: string;
+                            ccv: string;
+                        };
+                        creditCardHolderInfo: {
+                            name: string;
+                            email: string;
+                            cpfCnpj: string;
+                            postalCode: string;
+                            addressNumber: string;
+                            addressComplement?: string;
+                            phone?: string;
+                        };
+                        remoteIp?: string;
+                    } = {
+                        subscriptionId: assinaturaId,
+                        creditCardHolderInfo: {
+                            name: creditCardHolderInfo.name,
+                            email: creditCardHolderInfo.email,
+                            cpfCnpj: creditCardHolderInfo.cpfCnpj,
+                            postalCode: creditCardHolderInfo.postalCode,
+                            addressNumber: creditCardHolderInfo.addressNumber
+                        }
+                    };
+                    
+                    if (creditCardToken) {
+                        cartaoParams.creditCardToken = creditCardToken;
+                    } else if (creditCard) {
+                        cartaoParams.creditCard = {
+                            holderName: creditCard.holderName,
+                            number: creditCard.number,
+                            expiryMonth: creditCard.expiryMonth,
+                            expiryYear: creditCard.expiryYear,
+                            ccv: creditCard.ccv
+                        };
+                    }
+                    
+                    if (creditCardHolderInfo.addressComplement) {
+                        cartaoParams.creditCardHolderInfo.addressComplement = creditCardHolderInfo.addressComplement;
+                    }
+                    
+                    if (creditCardHolderInfo.phone) {
+                        cartaoParams.creditCardHolderInfo.phone = creditCardHolderInfo.phone;
+                    }
+                    
+                    if (remoteIp) {
+                        cartaoParams.remoteIp = remoteIp;
+                    }
+                    
+                    await atualizarCartaoAssinaturaAsaas(cartaoParams);
+                } catch (errorCartao: any) {
+                    console.error('[updatePaymentMethod] Erro ao atualizar cartão:', {
+                        message: errorCartao?.message,
+                        responseData: errorCartao?.response?.data,
+                        status: errorCartao?.response?.status
+                    });
+
+                    const statusCode = errorCartao?.response?.status || 500;
+                    const errorMessage = errorCartao?.response?.data?.errors || 
+                                       errorCartao?.response?.data?.message || 
+                                       errorCartao?.message || 
+                                       'Erro ao atualizar dados do cartão no Asaas.';
+
+                    return res.status(statusCode).json({ 
+                        error: errorMessage,
+                        details: errorCartao?.response?.data,
+                        note: 'A assinatura foi atualizada, mas falhou ao atualizar o cartão. Verifique os dados do cartão e tente novamente.'
+                    });
+                }
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Forma de pagamento atualizada com sucesso.',
+                assinaturaId,
+                billingType,
+                nextDueDate: nextDueDate ? String(nextDueDate).substring(0, 10) : undefined
+            });
+        } catch (error: any) {
+            console.error('[updatePaymentMethod] Erro inesperado:', {
+                message: error?.message,
+                stack: error?.stack,
+                responseData: error?.response?.data
+            });
+
+            return res.status(500).json({ 
+                error: error?.message || 'Erro ao atualizar forma de pagamento.',
+                details: error?.response?.data 
+            });
+        }
+    }
+
+    /**
+     * Verifica o pagamento de verificação e atualiza a assinatura com o token do cartão
+     * POST /subscription/verify-and-update-card/:assinaturaId
+     */
+    static async verifyAndUpdateCard(req: Request, res: Response) {
+        try {
+            const { assinaturaId } = req.params;
+            const { paymentId } = req.body;
+
+            if (!assinaturaId) {
+                return res.status(400).json({ error: 'assinaturaId é obrigatório.' });
+            }
+
+            if (!paymentId) {
+                return res.status(400).json({ error: 'paymentId é obrigatório.' });
+            }
+
+            const axios = (await import('axios')).default;
+            const ASAAS_API_URL = process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3';
+            const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
+
+            if (!ASAAS_API_KEY) {
+                return res.status(500).json({ error: 'Chave da API Asaas não configurada.' });
+            }
+
+            // Buscar o pagamento
+            const paymentResp = await axios.get(`${ASAAS_API_URL}/payments/${paymentId}`, {
+                headers: { access_token: ASAAS_API_KEY }
+            });
+
+            const payment = paymentResp.data;
+
+            // Verificar se o pagamento foi concluído
+            if (payment.status !== 'RECEIVED' && payment.status !== 'CONFIRMED') {
+                return res.status(400).json({ 
+                    error: 'Pagamento ainda não foi confirmado.',
+                    status: payment.status
+                });
+            }
+
+            // Obter o token do cartão (se disponível)
+            const creditCardToken = payment.creditCard?.creditCardToken || payment.creditCardToken;
+
+            if (!creditCardToken) {
+                return res.status(400).json({ error: 'Token do cartão não encontrado no pagamento.' });
+            }
+
+            // Buscar dados do portador do cartão
+            const customerResp = await axios.get(`${ASAAS_API_URL}/customers/${payment.customer}`, {
+                headers: { access_token: ASAAS_API_KEY }
+            });
+
+            const customer = customerResp.data;
+
+            // Atualizar a assinatura para CREDIT_CARD
+            const { atualizarAssinaturaAsaas, atualizarCartaoAssinaturaAsaas } = await import('../services/asaas.service.js');
+
+            // 1. Atualizar billingType
+            await atualizarAssinaturaAsaas({
+                subscriptionId: assinaturaId,
+                billingType: 'CREDIT_CARD',
+                updatePendingPayments: true
+            });
+
+            // 2. Atualizar cartão com o token
+            const remoteIp = req.ip || 
+                           (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
+                           req.socket.remoteAddress || 
+                           undefined;
+
+            const cartaoParams: {
+                subscriptionId: string;
+                creditCardToken: string;
+                creditCardHolderInfo: {
+                    name: string;
+                    email: string;
+                    cpfCnpj: string;
+                    postalCode: string;
+                    addressNumber: string;
+                    addressComplement?: string;
+                    phone?: string;
+                };
+                remoteIp?: string;
+            } = {
+                subscriptionId: assinaturaId,
+                creditCardToken: creditCardToken,
+                creditCardHolderInfo: {
+                    name: customer.name || '',
+                    email: customer.email || '',
+                    cpfCnpj: customer.cpfCnpj || '',
+                    postalCode: customer.postalCode || '',
+                    addressNumber: customer.addressNumber || ''
+                }
+            };
+
+            if (customer.addressComplement) {
+                cartaoParams.creditCardHolderInfo.addressComplement = customer.addressComplement;
+            }
+
+            if (customer.phone || customer.mobilePhone) {
+                cartaoParams.creditCardHolderInfo.phone = customer.phone || customer.mobilePhone;
+            }
+
+            if (remoteIp) {
+                cartaoParams.remoteIp = remoteIp;
+            }
+
+            await atualizarCartaoAssinaturaAsaas(cartaoParams);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cartão verificado e assinatura atualizada com sucesso.',
+                assinaturaId
+            });
+        } catch (error: any) {
+            console.error('[verifyAndUpdateCard] Erro:', {
+                message: error?.message,
+                responseData: error?.response?.data,
+                status: error?.response?.status
+            });
+
+            const statusCode = error?.response?.status || 500;
+            const errorMessage = error?.response?.data?.errors || 
+                               error?.response?.data?.message || 
+                               error?.message || 
+                               'Erro ao verificar e atualizar cartão.';
+
+            return res.status(statusCode).json({ 
+                error: errorMessage,
+                details: error?.response?.data 
+            });
+        }
+    }
+
+    /**
+     * Cria uma cobrança de verificação de cartão no Asaas
+     * e retorna a URL de pagamento segura para o usuário inserir os dados do cartão
+     * POST /subscription/generate-card-verification-url/:assinaturaId
+     */
+    static async generateCardVerificationUrl(req: Request, res: Response) {
+        try {
+            const { assinaturaId } = req.params;
+            const { callbackUrl } = req.body;
+
+            console.log('[generateCardVerificationUrl] Iniciando:', { assinaturaId, callbackUrl });
+
+            if (!assinaturaId) {
+                return res.status(400).json({ error: 'assinaturaId é obrigatório.' });
+            }
+
+            const axios = (await import('axios')).default;
+            const ASAAS_API_URL = process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3';
+            const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
+
+            if (!ASAAS_API_KEY) {
+                return res.status(500).json({ error: 'Chave da API Asaas não configurada.' });
+            }
+
+            // Buscar dados da assinatura para obter o customer ID
+            let subscription;
+            let customerId;
+            try {
+                const subscriptionResp = await axios.get(`${ASAAS_API_URL}/subscriptions/${assinaturaId}`, {
+                    headers: { access_token: ASAAS_API_KEY }
+                });
+                subscription = subscriptionResp.data;
+                customerId = subscription.customer;
+                console.log('[generateCardVerificationUrl] Assinatura encontrada:', { subscriptionId: subscription.id, customerId });
+            } catch (error: any) {
+                console.error('[generateCardVerificationUrl] Erro ao buscar assinatura:', {
+                    message: error?.message,
+                    responseData: error?.response?.data,
+                    status: error?.response?.status
+                });
+                
+                if (error?.response?.status === 404) {
+                    return res.status(404).json({ error: 'Assinatura não encontrada no Asaas.' });
+                }
+                throw error;
+            }
+
+            if (!customerId) {
+                return res.status(400).json({ error: 'Customer ID não encontrado na assinatura.' });
+            }
+
+            // Criar cobrança de verificação (valor mínimo de R$ 5,00 para cartão de crédito)
+            // Esta cobrança será usada apenas para cadastrar o cartão
+            // NOTA: O valor será estornado ou pode ser usado como crédito na assinatura
+            const paymentBody: any = {
+                customer: customerId,
+                billingType: 'CREDIT_CARD',
+                value: 5.00, // Valor mínimo para cartão de crédito no Asaas
+                dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Amanhã
+                description: 'Verificação de cartão - Atualização de forma de pagamento'
+            };
+
+            // Adicionar callback apenas se fornecido
+            if (callbackUrl && typeof callbackUrl === 'string' && callbackUrl.trim()) {
+                paymentBody.callback = {
+                    successUrl: callbackUrl.trim(),
+                    autoRedirect: true
+                };
+            }
+
+            console.log('[generateCardVerificationUrl] Criando pagamento:', { paymentBody });
+
+            let payment;
+            try {
+                const paymentResp = await axios.post(`${ASAAS_API_URL}/payments`, paymentBody, {
+                    headers: { access_token: ASAAS_API_KEY }
+                });
+                payment = paymentResp.data;
+                console.log('[generateCardVerificationUrl] Pagamento criado:', { paymentId: payment.id, invoiceUrl: payment.invoiceUrl });
+            } catch (error: any) {
+                console.error('[generateCardVerificationUrl] Erro ao criar pagamento:', {
+                    message: error?.message,
+                    responseData: error?.response?.data,
+                    status: error?.response?.status,
+                    requestBody: paymentBody
+                });
+
+                const statusCode = error?.response?.status || 500;
+                const errorData = error?.response?.data;
+
+                // Se o erro vier do Asaas, retornar os detalhes
+                if (errorData) {
+                    const errorMessage = Array.isArray(errorData.errors) 
+                        ? errorData.errors.map((e: any) => e.description || e.message || e).join(', ')
+                        : errorData.message || errorData.description || 'Erro ao criar pagamento no Asaas.';
+
+                    return res.status(statusCode).json({ 
+                        error: errorMessage,
+                        details: errorData 
+                    });
+                }
+
+                throw error;
+            }
+
+            if (!payment.invoiceUrl && !payment.bankSlipUrl) {
+                console.warn('[generateCardVerificationUrl] URL de pagamento não encontrada:', payment);
+                return res.status(500).json({ 
+                    error: 'URL de pagamento não foi gerada pelo Asaas.',
+                    details: payment 
+                });
+            }
+
+            // Usar invoiceUrl ou bankSlipUrl (pode variar)
+            const paymentUrl = payment.invoiceUrl || payment.bankSlipUrl;
+
+            return res.status(200).json({
+                paymentId: payment.id,
+                invoiceUrl: paymentUrl,
+                message: 'URL de pagamento gerada com sucesso. Redirecione o usuário para esta URL.'
+            });
+        } catch (error: any) {
+            console.error('[generateCardVerificationUrl] Erro não tratado:', {
+                message: error?.message,
+                stack: error?.stack,
+                responseData: error?.response?.data,
+                status: error?.response?.status
+            });
+
+            const statusCode = error?.response?.status || 500;
+            const errorMessage = error?.response?.data?.errors || 
+                               (Array.isArray(error?.response?.data?.errors) 
+                                   ? error?.response?.data?.errors.map((e: any) => e.description || e.message || e).join(', ')
+                                   : error?.response?.data?.message) ||
+                               error?.message || 
+                               'Erro ao gerar URL de verificação de cartão.';
+
+            return res.status(statusCode).json({ 
+                error: errorMessage,
+                details: error?.response?.data 
+            });
+        }
+    }
 }

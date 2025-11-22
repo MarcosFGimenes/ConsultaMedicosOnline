@@ -116,6 +116,70 @@ Respostas:
 - 409 `{ mensagem: "Existem pendências de pagamento" }`
 - 404 assinatura não encontrada
 
+### PUT /subscription/update-payment-method/:assinaturaId (protegido)
+Atualiza a forma de pagamento de uma assinatura existente. Permite alterar entre BOLETO, PIX e CREDIT_CARD.
+Regras:
+- Verifica se há cobranças pendentes/atrasadas antes de permitir alteração
+- Se for CREDIT_CARD, é necessário fornecer dados do cartão ou token
+- Atualiza também as faturas pendentes (updatePendingPayments: true)
+
+Body para BOLETO ou PIX:
+```json
+{
+  "billingType": "PIX",
+  "nextDueDate": "2025-12-01"
+}
+```
+
+Body para CREDIT_CARD (com dados completos):
+```json
+{
+  "billingType": "CREDIT_CARD",
+  "nextDueDate": "2025-12-01",
+  "creditCard": {
+    "holderName": "JOÃO SILVA",
+    "number": "5162306219378829",
+    "expiryMonth": "05",
+    "expiryYear": "2028",
+    "ccv": "318"
+  },
+  "creditCardHolderInfo": {
+    "name": "João Silva",
+    "email": "joao@email.com",
+    "cpfCnpj": "12345678901",
+    "postalCode": "13040000",
+    "addressNumber": "123",
+    "addressComplement": "Apto 45",
+    "phone": "19999998888"
+  }
+}
+```
+
+Body para CREDIT_CARD (com token):
+```json
+{
+  "billingType": "CREDIT_CARD",
+  "nextDueDate": "2025-12-01",
+  "creditCardToken": "tok_xxxxxxxxxxxx",
+  "creditCardHolderInfo": {
+    "name": "João Silva",
+    "email": "joao@email.com",
+    "cpfCnpj": "12345678901",
+    "postalCode": "13040000",
+    "addressNumber": "123",
+    "addressComplement": "Apto 45",
+    "phone": "19999998888"
+  }
+}
+```
+
+Respostas:
+- 200 `{ success: true, message: "Forma de pagamento atualizada com sucesso.", assinaturaId, billingType, nextDueDate }`
+- 400 `{ error: "billingType inválido" }` ou campos obrigatórios ausentes
+- 409 `{ error: "Não é possível alterar a forma de pagamento: existem cobranças pendentes ou atrasadas.", cobrancasPendentes: [...] }`
+- 404 assinatura não encontrada
+- 401 não autenticado
+
 ### GET /subscription/onboarding-status/:cpf
 Retorna o status do onboarding para um CPF.
 Resposta 200:

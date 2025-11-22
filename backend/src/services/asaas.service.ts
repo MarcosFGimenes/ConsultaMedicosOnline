@@ -186,3 +186,155 @@ export async function verificarTresPrimeirosMesesPagos(assinaturaId: string): Pr
         };
     }
 }
+
+// Tipos para formas de pagamento
+export type BillingType = 'BOLETO' | 'PIX' | 'CREDIT_CARD';
+
+// Interface para dados do cartão de crédito
+export interface CreditCardData {
+    holderName?: string;
+    number?: string;
+    expiryMonth?: string;
+    expiryYear?: string;
+    ccv?: string;
+}
+
+export interface CreditCardHolderInfo {
+    name: string;
+    email: string;
+    cpfCnpj: string;
+    postalCode: string;
+    addressNumber: string;
+    addressComplement?: string;
+    phone?: string;
+}
+
+/**
+ * Lista cobranças (payments) de uma assinatura específica via endpoint dedicado
+ * GET /subscriptions/{id}/payments
+ * @param subscriptionId ID da assinatura no Asaas
+ * @returns Array de cobranças/pagamentos da assinatura
+ */
+export async function listarCobrancasAssinaturaAsaas(subscriptionId: string): Promise<any[]> {
+    if (!ASAAS_API_KEY) throw new Error('Chave da API Asaas não configurada');
+    if (!subscriptionId) throw new Error('subscriptionId obrigatório');
+    
+    const resp = await axios.get(`${ASAAS_API_URL}/subscriptions/${subscriptionId}/payments`, {
+        headers: { access_token: ASAAS_API_KEY }
+    });
+    
+    return resp.data?.data || [];
+}
+
+/**
+ * Atualiza uma assinatura existente no Asaas
+ * PUT /subscriptions/{id}
+ * Permite alterar a forma de pagamento (billingType) e outras configurações
+ * @param subscriptionId ID da assinatura no Asaas
+ * @param billingType Nova forma de pagamento (BOLETO, PIX ou CREDIT_CARD)
+ * @param nextDueDate Data de vencimento da próxima cobrança (opcional, formato YYYY-MM-DD)
+ * @param updatePendingPayments Se true, atualiza também as faturas pendentes (padrão: true)
+ * @returns Dados da assinatura atualizada
+ */
+export async function atualizarAssinaturaAsaas({
+    subscriptionId,
+    billingType,
+    nextDueDate,
+    updatePendingPayments = true
+}: {
+    subscriptionId: string;
+    billingType: BillingType;
+    nextDueDate?: string;
+    updatePendingPayments?: boolean;
+}): Promise<any> {
+    if (!ASAAS_API_KEY) throw new Error('Chave da API Asaas não configurada');
+    if (!subscriptionId) throw new Error('subscriptionId obrigatório');
+    if (!billingType) throw new Error('billingType obrigatório');
+    
+    const body: any = {
+        billingType,
+        updatePendingPayments
+    };
+    
+    if (nextDueDate) {
+        body.nextDueDate = nextDueDate;
+    }
+    
+    const resp = await axios.put(`${ASAAS_API_URL}/subscriptions/${subscriptionId}`, body, {
+        headers: { access_token: ASAAS_API_KEY }
+    });
+    
+    return resp.data;
+}
+
+/**
+ * Atualiza os dados do cartão de crédito de uma assinatura no Asaas
+ * PUT /subscriptions/{id}/creditCard
+ * @param subscriptionId ID da assinatura no Asaas
+ * @param creditCard Dados completos do cartão (opcional, se creditCardToken não for fornecido)
+ * @param creditCardToken Token do cartão já tokenizado (opcional, alternativa ao creditCard)
+ * @param creditCardHolderInfo Dados do portador do cartão
+ * @param remoteIp IP do cliente (obrigatório para segurança)
+ * @returns Resposta da API Asaas
+ */
+export async function atualizarCartaoAssinaturaAsaas({
+    subscriptionId,
+    creditCard,
+    creditCardToken,
+    creditCardHolderInfo,
+    remoteIp
+}: {
+    subscriptionId: string;
+    creditCard?: CreditCardData;
+    creditCardToken?: string;
+    creditCardHolderInfo?: CreditCardHolderInfo;
+    remoteIp?: string;
+}): Promise<any> {
+    if (!ASAAS_API_KEY) throw new Error('Chave da API Asaas não configurada');
+    if (!subscriptionId) throw new Error('subscriptionId obrigatório');
+    
+    // Validação: precisa ter ou creditCardToken ou creditCard completo
+    if (!creditCardToken && (!creditCard || !creditCard.holderName || !creditCard.number || !creditCard.expiryMonth || !creditCard.expiryYear || !creditCard.ccv)) {
+        throw new Error('É necessário fornecer creditCardToken ou dados completos do cartão (holderName, number, expiryMonth, expiryYear, ccv)');
+    }
+    
+    const body: any = {};
+    
+    // Se tem token, usa o token
+    if (creditCardToken) {
+        body.creditCardToken = creditCardToken;
+    } else if (creditCard) {
+        // Caso contrário, usa os dados do cartão
+        body.creditCard = {
+            holderName: creditCard.holderName,
+            number: creditCard.number,
+            expiryMonth: creditCard.expiryMonth,
+            expiryYear: creditCard.expiryYear,
+            ccv: creditCard.ccv
+        };
+    }
+    
+    // Dados do portador do cartão
+    if (creditCardHolderInfo) {
+        body.creditCardHolderInfo = {
+            name: creditCardHolderInfo.name,
+            email: creditCardHolderInfo.email,
+            cpfCnpj: creditCardHolderInfo.cpfCnpj,
+            postalCode: creditCardHolderInfo.postalCode,
+            addressNumber: creditCardHolderInfo.addressNumber,
+            addressComplement: creditCardHolderInfo.addressComplement,
+            phone: creditCardHolderInfo.phone
+        };
+    }
+    
+    // IP remoto para segurança
+    if (remoteIp) {
+        body.remoteIp = remoteIp;
+    }
+    
+    const resp = await axios.put(`${ASAAS_API_URL}/subscriptions/${subscriptionId}/creditCard`, body, {
+        headers: { access_token: ASAAS_API_KEY }
+    });
+    
+    return resp.data;
+}

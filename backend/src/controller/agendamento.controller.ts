@@ -64,14 +64,13 @@ export class AgendamentoController {
         }
       }
 
-      if (!cpf || !date || (!from && !to && !req.body.time)) {
+      if (!cpf || !date || (!from && !to && !time)) {
         return res.status(400).json({ error: 'Campos obrigatórios: cpf, date (yyyy-MM-dd), from(HH:mm) e to(HH:mm) ou time + durationMinutes.' });
       }
 
       // Derivar from/to se vier time + durationMinutes
       let finalFrom = from;
       let finalTo = to;
-      const time = req.body.time;
       if (!finalFrom && time) finalFrom = time;
       if (!finalTo && finalFrom && durationMinutes && Number(durationMinutes) > 0) {
         const [h, m] = finalFrom.split(':');

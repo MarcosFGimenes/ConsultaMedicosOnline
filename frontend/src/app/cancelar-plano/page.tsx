@@ -37,6 +37,75 @@ export default function CancelarPlanoPage() {
   const [selectedOffer, setSelectedOffer] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<string>('');
   const [loadingCancel, setLoadingCancel] = useState(false);
+  const [loadingPlano, setLoadingPlano] = useState(true);
+  const [planoInfo, setPlanoInfo] = useState<PlanoInfo | null>(null);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [dataCancelamento, setDataCancelamento] = useState<string | null>(null);
+
+  // Carregar informações do plano
+  useEffect(() => {
+    const carregarPlano = async () => {
+      try {
+        setLoadingPlano(true);
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        
+        if (!token) {
+          setError('Usuário não autenticado');
+          setLoadingPlano(false);
+          return;
+        }
+
+        const response = await fetch(`${apiBase}/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao carregar informações do plano');
+        }
+
+        const data = await response.json();
+        
+        // Buscar informações do plano a partir dos dados do dashboard
+        const assinatura = data.assinaturas?.[0] || data.usuario;
+        const beneficiarios = data.beneficiarios || [];
+        
+        if (assinatura?.planoId) {
+          // Buscar detalhes do plano
+          const planosResponse = await fetch(`${apiBase}/planos`);
+          if (planosResponse.ok) {
+            const planos = await planosResponse.json();
+            const plano = Array.isArray(planos) 
+              ? planos.find((p: any) => p.id === assinatura.planoId)
+              : null;
+            
+            if (plano) {
+              setPlanoInfo({
+                nome: plano.tipo || plano.nome || 'Plano',
+                valor: plano.preco || plano.valor || 0,
+                dependentes: beneficiarios.length || 0
+              });
+            }
+          }
+        } else if (assinatura?.plano) {
+          // Se o plano já vem nos dados da assinatura
+          setPlanoInfo({
+            nome: assinatura.plano.tipo || assinatura.plano.nome || 'Plano',
+            valor: assinatura.plano.preco || assinatura.plano.valor || 0,
+            dependentes: beneficiarios.length || 0
+          });
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar plano:', err);
+        setError(err.message || 'Erro ao carregar informações do plano');
+      } finally {
+        setLoadingPlano(false);
+      }
+    };
+
+    carregarPlano();
+  }, []);
 
   // Corrigido: handleReasonToggle estava com escopo e lógica quebrados
   const handleReasonToggle = (reason: string) => {
@@ -49,32 +118,86 @@ export default function CancelarPlanoPage() {
 
   // Corrigido: handleConfirmCancellation duplicado e escopo errado
   const handleConfirmCancellation = async () => {
+    console.log('[CancelarPlano] Iniciando cancelamento...');
     setCancelError('');
+    setError('');
     setLoadingCancel(true);
+    setLoading(true);
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) throw new Error('Usuário não autenticado');
+      if (!token) {
+        console.error('[CancelarPlano] Token não encontrado');
+        throw new Error('Usuário não autenticado');
+      }
+      
+      console.log('[CancelarPlano] Verificando faturas...');
       // Verifica pagamento em dia
       const resp = await fetch(`${apiBase}/faturas`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!resp.ok) throw new Error('Erro ao consultar faturas');
+      
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        console.error('[CancelarPlano] Erro ao consultar faturas:', errorData);
+        throw new Error(errorData.error || 'Erro ao consultar faturas');
+      }
+      
       const data = await resp.json();
-      const emDia = Array.isArray(data?.faturas)
-        ? data.faturas.some((f: any) => f.status === 'RECEIVED' || f.status === 'PAID')
+      console.log('[CancelarPlano] Dados das faturas:', data);
+      const faturas = data?.faturas || [];
+      const emDia = Array.isArray(faturas)
+        ? faturas.some((f: any) => f.status === 'RECEIVED' || f.status === 'PAID')
         : false;
+      
+      console.log('[CancelarPlano] Pagamento em dia:', emDia);
+      
       if (!emDia) {
-        setCancelError('Não é possível cancelar: pagamento não está em dia. Regularize sua situação para prosseguir.');
+        console.warn('[CancelarPlano] Pagamento não está em dia');
+        const mensagemErro = 'Não é possível cancelar: pagamento não está em dia. Regularize sua situação para prosseguir.';
+        setCancelError(mensagemErro);
+        setError(mensagemErro);
         setLoadingCancel(false);
+        setLoading(false);
         return;
       }
-      // Aqui faria a chamada à API de cancelamento de fato
+      
+      console.log('[CancelarPlano] Chamando API de cancelamento...');
+      // Chamada à API de cancelamento
+      const cancelResponse = await fetch(`${apiBase}/subscription/cancelar-plano`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reasons: selectedReasons,
+          comments: additionalComments
+        })
+      });
+      
+      console.log('[CancelarPlano] Resposta do cancelamento:', cancelResponse.status, cancelResponse.statusText);
+      
+      if (!cancelResponse.ok) {
+        const errorData = await cancelResponse.json().catch(() => ({}));
+        console.error('[CancelarPlano] Erro na resposta:', errorData);
+        throw new Error(errorData.error || 'Erro ao cancelar plano');
+      }
+      
+      const result = await cancelResponse.json();
+      console.log('[CancelarPlano] Cancelamento bem-sucedido:', result);
+      setDataCancelamento(result.dataCancelamento || new Date().toISOString());
       setStep('confirmation');
     } catch (e: any) {
-      setCancelError(e.message || 'Erro ao cancelar plano');
+      console.error('[CancelarPlano] Erro ao cancelar plano:', e);
+      console.error('[CancelarPlano] Stack:', e.stack);
+      const errorMessage = e.message || 'Erro ao cancelar plano';
+      setCancelError(errorMessage);
+      setError(errorMessage);
     } finally {
+      console.log('[CancelarPlano] Finalizando (loading: false)');
       setLoadingCancel(false);
+      setLoading(false);
     }
   };
 
@@ -219,9 +342,12 @@ export default function CancelarPlanoPage() {
                 />
               </div>
 
-              {error && (
+              {(error || cancelError) && (
                 <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-                  <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800 dark:text-red-300">{error || cancelError}</p>
+                  </div>
                 </div>
               )}
 
@@ -230,8 +356,14 @@ export default function CancelarPlanoPage() {
                   Voltar
                 </Button>
                 <Button 
+                  type="button"
                   variant="danger" 
-                  onClick={handleConfirmCancellation}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[CancelarPlano] Botão clicado');
+                    handleConfirmCancellation();
+                  }}
                   disabled={loading}
                 >
                   {loading ? (
@@ -270,8 +402,13 @@ export default function CancelarPlanoPage() {
                   </Button>
                 </div>
               </div>
-              {cancelError && (
-                <div className="mt-4 text-red-600 dark:text-red-400 text-sm">{cancelError}</div>
+              {(error || cancelError) && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800 dark:text-red-300">{error || cancelError}</p>
+                  </div>
+                </div>
               )}
             </CardBody>
           </Card>

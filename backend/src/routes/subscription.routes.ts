@@ -31,4 +31,13 @@ router.get('/subscription/onboarding-status/:cpf', SubscriptionController.onboar
 // POST /api/subscription/complete-onboarding
 router.post('/subscription/complete-onboarding', SubscriptionController.completeOnboarding);
 
+// PUT /api/subscription/update-payment-method/:assinaturaId (protegido - requer autenticação)
+router.put('/subscription/update-payment-method/:assinaturaId', autenticarFirebase, SubscriptionController.updatePaymentMethod);
+
+// POST /api/subscription/generate-card-verification-url/:assinaturaId (protegido - requer autenticação)
+router.post('/subscription/generate-card-verification-url/:assinaturaId', autenticarFirebase, SubscriptionController.generateCardVerificationUrl);
+
+// POST /api/subscription/verify-and-update-card/:assinaturaId (protegido - requer autenticação)
+router.post('/subscription/verify-and-update-card/:assinaturaId', autenticarFirebase, SubscriptionController.verifyAndUpdateCard);
+
 export default router;
