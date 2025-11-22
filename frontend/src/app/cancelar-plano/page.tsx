@@ -1,20 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
   AlertCircle,
   XCircle,
-  Heart,
-  DollarSign,
-  Users,
-  Calendar,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
+import { auth } from '@/lib/firebase';
 
-type CancellationStep = 'initial' | 'reasons' | 'retention' | 'confirmation';
+type CancellationStep = 'initial' | 'reasons' | 'confirmation';
 
 const CANCELLATION_REASONS = [
   'Preço muito alto',
@@ -26,29 +24,11 @@ const CANCELLATION_REASONS = [
   'Outro motivo',
 ];
 
-const RETENTION_OFFERS = [
-  {
-    id: 1,
-    icon: DollarSign,
-    title: '3 Meses com 30% de Desconto',
-    description: 'Aproveite nosso plano por apenas R$ 104,93/mês',
-    highlight: 'Economia de R$ 134,91',
-  },
-  {
-    id: 2,
-    icon: Users,
-    title: 'Inclua Mais Dependentes Grátis',
-    description: 'Adicione até 2 dependentes sem custo adicional',
-    highlight: 'Por tempo limitado',
-  },
-  {
-    id: 3,
-    icon: Calendar,
-    title: 'Pausar Assinatura',
-    description: 'Pause por até 3 meses sem perder seus benefícios',
-    highlight: 'Volte quando quiser',
-  },
-];
+interface PlanoInfo {
+  nome: string;
+  valor: number;
+  dependentes: number;
+}
 
 export default function CancelarPlanoPage() {
   const [step, setStep] = useState<CancellationStep>('initial');
@@ -146,32 +126,43 @@ export default function CancelarPlanoPage() {
             <Card>
               <CardHeader>Seu Plano Atual</CardHeader>
               <CardBody>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Plano
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Premium Familiar
-                    </p>
+                {loadingPlano ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">Carregando informações do plano...</p>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Valor Mensal
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      R$ 149,90
-                    </p>
+                ) : planoInfo ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Plano
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {planoInfo.nome}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Valor Mensal
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        R$ {planoInfo.valor.toFixed(2).replace('.', ',')}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Dependentes
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {planoInfo.dependentes} {planoInfo.dependentes === 1 ? 'ativo' : 'ativos'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Dependentes
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      3 ativos
-                    </p>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 dark:text-gray-400">Não foi possível carregar as informações do plano.</p>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                   <Button variant="outline" onClick={() => window.history.back()}>
@@ -228,12 +219,32 @@ export default function CancelarPlanoPage() {
                 />
               </div>
 
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                  <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                 <Button variant="outline" onClick={() => setStep('initial')}>
                   Voltar
                 </Button>
-                <Button variant="primary" onClick={() => setStep('retention')}>
-                  Continuar
+                <Button 
+                  variant="danger" 
+                  onClick={handleConfirmCancellation}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Cancelando...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5 mr-2" />
+                      Confirmar Cancelamento
+                    </>
+                  )}
                 </Button>
               </div>
             </CardBody>
@@ -280,10 +291,12 @@ export default function CancelarPlanoPage() {
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   Seu plano foi cancelado com sucesso.
                 </p>
-                <p className="text-sm text-gray-500 mb-8">
-                  Você terá acesso aos serviços até o fim do período pago em{' '}
-                  <strong>15/12/2025</strong>
-                </p>
+                {dataCancelamento && (
+                  <p className="text-sm text-gray-500 mb-8">
+                    Seu plano foi cancelado em{' '}
+                    <strong>{new Date(dataCancelamento).toLocaleDateString('pt-BR')}</strong>
+                  </p>
+                )}
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl mb-8">
                   <p className="text-sm text-blue-800 dark:text-blue-300">

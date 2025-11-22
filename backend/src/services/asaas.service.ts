@@ -151,3 +151,38 @@ export async function obterDetalhesPagamentoAssinatura(assinaturaId: string): Pr
     if (primeiroPagamento.encodedImage) detalhes.encodedImage = primeiroPagamento.encodedImage;
     return { assinaturaId, encontrado: true, pagamento: detalhes };
 }
+
+// Verifica se o usuário pagou os 3 primeiros meses da assinatura
+export async function verificarTresPrimeirosMesesPagos(assinaturaId: string): Promise<{ pagos: boolean; pagamentosPagos: number; mensagem?: string }> {
+    if (!ASAAS_API_KEY) throw new Error('Chave da API Asaas não configurada');
+    if (!assinaturaId) throw new Error('assinaturaId obrigatório');
+    
+    const pagamentos = await listarPagamentosDaAssinatura(assinaturaId);
+    if (!pagamentos.length) {
+        return { pagos: false, pagamentosPagos: 0, mensagem: 'Nenhum pagamento encontrado para esta assinatura.' };
+    }
+    
+    // Ordena pagamentos por data de vencimento (mais antigo primeiro)
+    const pagamentosOrdenados = pagamentos.sort((a: any, b: any) => {
+        const dataA = new Date(a.dueDate || a.dateCreated || 0);
+        const dataB = new Date(b.dueDate || b.dateCreated || 0);
+        return dataA.getTime() - dataB.getTime();
+    });
+    
+    // Pega os 3 primeiros pagamentos
+    const tresPrimeiros = pagamentosOrdenados.slice(0, 3);
+    
+    // Verifica quantos estão pagos (status RECEIVED)
+    const pagos = tresPrimeiros.filter((p: any) => String(p.status || '').toUpperCase() === 'RECEIVED');
+    const pagamentosPagos = pagos.length;
+    
+    if (pagamentosPagos >= 3) {
+        return { pagos: true, pagamentosPagos: 3 };
+    } else {
+        return { 
+            pagos: false, 
+            pagamentosPagos, 
+            mensagem: `É necessário ter pago os 3 primeiros meses para cancelar. Você pagou ${pagamentosPagos} de 3 meses.` 
+        };
+    }
+}
