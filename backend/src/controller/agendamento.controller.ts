@@ -45,7 +45,7 @@ export class AgendamentoController {
   }
   static async criar(req: Request, res: Response) {
     try {
-      const { cpf, date, from, to, specialtyUuid, notes, durationMinutes } = req.body || {};
+      const { cpf, date, from, to, specialtyUuid, notes, durationMinutes, time } = req.body || {};
             
       // Validar specialtyUuid contra lista disponível (sem travar se falhar a listagem)
       let especialidades: any[] = [];
