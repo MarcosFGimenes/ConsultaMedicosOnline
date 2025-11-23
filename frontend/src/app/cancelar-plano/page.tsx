@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 
-type CancellationStep = 'initial' | 'reasons' | 'confirmation';
+type CancellationStep = 'initial' | 'reasons' | 'retention' | 'confirmation';
 
 const CANCELLATION_REASONS = [
   'Preço muito alto',
