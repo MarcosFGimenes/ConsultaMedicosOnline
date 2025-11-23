@@ -17,6 +17,8 @@ import {
   Download,
   ExternalLink,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface MedicalReferral {
@@ -49,6 +51,8 @@ export default function EncaminhamentosPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Buscar encaminhamentos do backend - UMA ÚNICA CHAMADA usando CPF do token
   useEffect(() => {
@@ -171,7 +175,14 @@ export default function EncaminhamentosPage() {
     });
 
     setReferrals(filtered);
+    setCurrentPage(1); // Resetar para primeira página quando filtrar
   }, [searchTerm, filterStatus, allReferrals]);
+
+  // Calcular paginação
+  const totalPages = Math.ceil(referrals.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentReferrals = referrals.slice(startIndex, endIndex);
 
   const getReferralStatusBadge = (status?: string) => {
     if (!status) return null;
@@ -245,8 +256,8 @@ export default function EncaminhamentosPage() {
 
       {/* Lista de Encaminhamentos */}
       <div className="space-y-4">
-        {referrals.length > 0 ? (
-          referrals.map((referral, index) => {
+        {currentReferrals.length > 0 ? (
+          currentReferrals.map((referral, index) => {
             const specialtyName = referral.specialty?.name || 'Especialidade não informada';
             const doctorName = referral.professional?.name || 'Médico não informado';
             const patientName = referral.beneficiary?.name || 'Você';
@@ -348,6 +359,71 @@ export default function EncaminhamentosPage() {
           </Card>
         )}
       </div>
+
+      {/* Paginação */}
+      {referrals.length > itemsPerPage && (
+        <Card className="mt-6">
+          <CardBody>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, referrals.length)} de {referrals.length} encaminhamentos
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Anterior
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Mostrar apenas algumas páginas ao redor da atual
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "primary" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="min-w-[40px]"
+                        >
+                          {page}
+                        </Button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return (
+                        <span key={page} className="px-2">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Estatísticas */}
       {allReferrals.length > 0 && (

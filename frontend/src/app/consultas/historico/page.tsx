@@ -18,6 +18,8 @@ import {
   Loader2,
   ExternalLink,
   FileCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 type AppointmentStatus = 'completed' | 'cancelled' | 'missed' | 'scheduled';
@@ -103,6 +105,8 @@ export default function HistoricoConsultasPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterSpecialty, setFilterSpecialty] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Buscar agendamentos do backend - sem usar dashboard
   useEffect(() => {
@@ -304,7 +308,14 @@ export default function HistoricoConsultasPage() {
     });
 
     setAppointments(filtered);
+    setCurrentPage(1); // Resetar para primeira página quando filtrar
   }, [searchTerm, filterStatus, filterSpecialty, allAppointments]);
+
+  // Calcular paginação
+  const totalPages = Math.ceil(appointments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAppointments = appointments.slice(startIndex, endIndex);
 
   // Obter lista única de especialidades para o filtro
   const specialties = Array.from(
@@ -427,8 +438,8 @@ Status: ${STATUS_MAP[appointment.status]?.label || appointment.status}
 
       {/* Appointments List */}
       <div className="space-y-4">
-        {appointments.length > 0 ? (
-          appointments.map((appointment) => {
+        {currentAppointments.length > 0 ? (
+          currentAppointments.map((appointment) => {
             const statusInfo = STATUS_MAP[appointment.status];
 
             // Converter data para formato brasileiro se necessário
@@ -585,6 +596,71 @@ Status: ${STATUS_MAP[appointment.status]?.label || appointment.status}
           </Card>
         )}
       </div>
+
+      {/* Paginação */}
+      {appointments.length > itemsPerPage && (
+        <Card className="mt-6">
+          <CardBody>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, appointments.length)} de {appointments.length} consultas
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Anterior
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Mostrar apenas algumas páginas ao redor da atual
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "primary" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="min-w-[40px]"
+                        >
+                          {page}
+                        </Button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return (
+                        <span key={page} className="px-2">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       {allAppointments.length > 0 && (
