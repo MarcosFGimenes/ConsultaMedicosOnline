@@ -392,8 +392,6 @@ export default function AtendimentoImediatoPage() {
             </Button>
           </CardBody>
         </Card>
-      )}
-
 
     </DashboardLayout>
   );
